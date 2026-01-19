@@ -305,24 +305,68 @@
     // ============================================================
     // === 2. JSONBIN CONFIGURATION ===
     // ============================================================
-    const JSONBIN_BIN_ID = "696e7bb1d0ea881f4076ad93";
-    fetch("https://api.jsonbin.io/v3/b/696e7bb1d0ea881f4076ad93/latest");
-    const JSONBIN_ACCESS_KEY = "696e7be6ae596e708fe725de";
+   // 1. إعدادات الاتصال بـ JSONBin
+// 1. إعدادات الاتصال بـ JSONBin (تم التحديث بمفاتيحك الخاصة)
+const JSONBIN_BIN_ID = "696e7bb1d0ea881f4076ad93";
+const JSONBIN_ACCESS_KEY = "$2a$10$TunKuA35QdJp478eIMXxRunQfqgmhDY3YAxBXUXuV/JrgIFhU0Lf2";
 
-    const defaultConfig = {
-        botName: "University Library",
-        botStatus: "Online",
-        botIcon: "🎓", botImage: "", typingSpeed: 600, admins: ["owner"],
-        welcomeMessage: "Welcome! 🎓<br>This is <b>{botName}</b>.<br>Please select a subject to begin.",
-        subjectPrompt: "<b>{name}</b>\nPlease select a Doctor 👇",
-        doctorPrompt: "<b>{name}</b>\nSelect a section 👇",
-        categoryPrompt: "<b>{name}</b> list:",
-        backSubject: "Back to <b>{name}</b> doctors:",
-        backDoctor: "Back to <b>{name}</b> sections:",
-        backMain: "Back to Main Menu."
-    };
+// 2. القيم الافتراضية للبوت
+const defaultConfig = {
+    botName: "University Library Bot",
+    botStatus: "Online",
+    botIcon: "🎓",
+    botImage: "",
+    typingSpeed: 600,
+    admins: ["owner"],
+    welcomeMessage: "Welcome! 🎓<br>This is <b>{botName}</b>.<br>Please select a subject to begin.",
+    subjectPrompt: "<b>{name}</b>\nPlease select a Doctor 👇",
+    doctorPrompt: "<b>{name}</b>\nSelect a section 👇",
+    categoryPrompt: "<b>{name}</b> list:",
+    backSubject: "Back to <b>{name}</b> doctors:",
+    backDoctor: "Back to <b>{name}</b> sections:",
+    backMain: "Back to Main Menu."
+};
 
-    let CONFIG = { ...defaultConfig };
+// 3. دالة لجلب البيانات (للتأكد من أن البوت يقرأ آخر التحديثات)
+async function loadBotConfig() {
+    try {
+        const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+            method: 'GET',
+            headers: {
+                'X-Master-Key': JSONBIN_ACCESS_KEY
+            }
+        });
+        if (!response.ok) throw new Error('Unauthorized or Bin Not Found');
+        const data = await response.json();
+        return data.record;
+    } catch (error) {
+        console.error("خطأ في جلب البيانات، تم استخدام الإعدادات الافتراضية:", error);
+        return defaultConfig;
+    }
+}
+
+// 4. دالة لتحديث البيانات (لحفظ أي تعديل جديد تقوم به)
+async function updateBotConfig(newConfigData) {
+    try {
+        const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': JSONBIN_ACCESS_KEY
+            },
+            body: JSON.stringify(newConfigData)
+        });
+        
+        const result = await response.json();
+        if (response.ok) {
+            console.log("تم تحديث بيانات البوت بنجاح ✅");
+        } else {
+            console.error("فشل التحديث ❌:", result.message);
+        }
+    } catch (error) {
+        console.error("خطأ في الاتصال بالسيرفر:", error);
+    }
+}
 
     // ============================================================
     // === 3. FULL DATABASE (النظام التفصيلي الكامل) ===
