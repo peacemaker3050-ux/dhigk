@@ -472,7 +472,7 @@
             CONFIG = { ...defaultConfig, ...data }; 
             
             // HYBRID MERGE LOGIC:
-            // We want HTML (defaultDatabase) to be the MASTER for existing items.
+            // We want HTML (defaultDatabase) to be MASTER for existing items.
             // We want Admin Panel (Bin) to ADD new items that are not in HTML.
             // We reverse the spread order for 'database' only.
             // 1. Start with Bin data (Admin additions).
@@ -600,7 +600,28 @@
     }
 
     // ============================================================
-    // === 4. ADMIN PANEL LOGIC ===
+    // === 4. FIX: FORCE RELOAD ===
+    // ============================================================
+    window.forceReload = function() {
+        document.getElementById('menu-dropdown').classList.remove('active');
+        if(confirm("سيتم مسح الذاكرة المؤقتة وإعادة تحميل الصفحة.")) {
+            if ('caches' in window) { 
+                caches.keys().then(function(names) { 
+                    for (let name of names) caches.delete(name); 
+                }); 
+            }
+            if ('serviceWorker' in navigator) { 
+                navigator.serviceWorker.getRegistrations().then(function(registrations) { 
+                    for(let registration of registrations) registration.unregister(); 
+                }); 
+            }
+            // FIX: Reload with a timestamp to bust browser cache for the HTML file itself
+            window.location.href = window.location.href.split('?')[0] + '?t=' + new Date().getTime();
+        }
+    };
+
+    // ============================================================
+    // === 5. ADMIN PANEL LOGIC ===
     // ============================================================
     let adminNavStack = [];
 
@@ -851,7 +872,7 @@
     }
 
     // ============================================================
-    // === 5. KEYBOARD RENDERER ===
+    // === 6. KEYBOARD RENDERER ===
     // ============================================================
     function resetStateVariables() { currentSubject = null; currentDoctor = null; currentCategory = null; renderKeyboard(); }
 
