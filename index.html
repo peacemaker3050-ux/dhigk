@@ -306,17 +306,16 @@
     // === 2. JSONBIN CONFIGURATION ===
     // ============================================================
    // 1. إعدادات الاتصال بـ JSONBin
-// 1. إعدادات الاتصال بـ JSONBin (تم التحديث بمفاتيحك الخاصة)
-const JSONBIN_BIN_ID = "696e7bb1d0ea881f4076ad93";
-const JSONBIN_ACCESS_KEY = "$2a$10$TunKuA35QdJp478eIMXxRunQfqgmhDY3YAxBXUXuV/JrgIFhU0Lf2";
+const JSONBIN_BIN_ID = "696e77bfae596e708fe71e9d";
+const JSONBIN_ACCESS_KEY = "$2a$10$TunKuA35QdJp478eIMXxRunQfqgmhDY3YAxBXUXuV/JrgIFhU0Lf2"; // تأكد أن المفتاح يبدأ بـ $2b$ إذا كان Master Key
 
-// 2. القيم الافتراضية للبوت
+// 2. القيم الافتراضية (تستخدم في حال فشل التحميل)
 const defaultConfig = {
-    botName: "University Library Bot",
+    botName: "University Library",
     botStatus: "Online",
-    botIcon: "🎓",
-    botImage: "",
-    typingSpeed: 600,
+    botIcon: "🎓", 
+    botImage: "", 
+    typingSpeed: 600, 
     admins: ["owner"],
     welcomeMessage: "Welcome! 🎓<br>This is <b>{botName}</b>.<br>Please select a subject to begin.",
     subjectPrompt: "<b>{name}</b>\nPlease select a Doctor 👇",
@@ -327,29 +326,47 @@ const defaultConfig = {
     backMain: "Back to Main Menu."
 };
 
+// 3. دالة لجلب البيانات من JSONBin عند تشغيل البوت
+async function loadBotConfig() {
+    try {
+        const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+            method: 'GET',
+            headers: {
+                'X-Master-Key': JSONBIN_ACCESS_KEY // إضافة المفتاح هنا ضروري للقراءة
+            }
+        });
+        if (!response.ok) throw new Error('Failed to load config');
+        const data = await response.json();
+        console.log("تم تحميل الإعدادات بنجاح:", data.record);
+        return data.record;
+    } catch (error) {
+        console.error("تعذر التحميل، سيتم استخدام الإعدادات الافتراضية:", error);
+        return defaultConfig;
+    }
+}
 
-// 4. دالة لتحديث البيانات (لحفظ أي تعديل جديد تقوم به)
-async function updateBotConfig(newConfigData) {
+// 4. دالة لحفظ التعديلات الجديدة (تستدعيها عند الضغط على زر حفظ)
+async function saveBotConfig(newConfig) {
     try {
         const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
-                'X-Master-Key': JSONBIN_ACCESS_KEY
+                'X-Master-Key': JSONBIN_ACCESS_KEY // إضافة المفتاح هنا ضروري للكتابة
             },
-            body: JSON.stringify(newConfigData)
+            body: JSON.stringify(newConfig)
         });
-        
         const result = await response.json();
         if (response.ok) {
-            console.log("تم تحديث بيانات البوت بنجاح ✅");
+            alert("تم حفظ التعديلات في السيرفر بنجاح!");
         } else {
-            console.error("فشل التحديث ❌:", result.message);
+            console.error("فشل الحفظ:", result);
         }
     } catch (error) {
-        console.error("خطأ في الاتصال بالسيرفر:", error);
+        alert("خطأ في الاتصال بالسيرفر");
     }
 }
+    let CONFIG = { ...defaultConfig };
 
     // ============================================================
     // === 3. FULL DATABASE (النظام التفصيلي الكامل) ===
