@@ -6,7 +6,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>University Library Bot (Admin Full Control)</title>
+    <title>University Library Bot (Hybrid Control)</title>
     
     <style>
         /* === Reset & Basic Settings === */
@@ -351,44 +351,75 @@
 
 <script>
     // ============================================================
-    // === 1. FORCE RELOAD FUNCTION ===
-    // ============================================================
-    window.forceReload = function() {
-        document.getElementById('menu-dropdown').classList.remove('active');
-        if(confirm("سيتم مسح الذاكرة المؤقتة وإعادة تحميل الصفحة.")) {
-            if ('caches' in window) { caches.keys().then(function(names) { for (let name of names) caches.delete(name); }); }
-            if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(function(registrations) { for(let registration of registrations) registration.unregister(); }); }
-            setTimeout(() => { window.location.reload(true); }, 500);
-        }
-    };
-
-    // ============================================================
-    // === 2. JSONBIN CONFIGURATION & DEFAULT DATA ===
+    // === 1. CONFIGURATION & DEFAULTS ===
     // ============================================================
     const JSONBIN_BIN_ID = "696e77bfae596e708fe71e9d";
     const JSONBIN_ACCESS_KEY = "$2a$10$TunKuA35QdJp478eIMXxRunQfqgmhDY3YAxBXUXuV/JrgIFhU0Lf2";
 
-    // Default Database Structure (Fallback if JSONBin is empty)
+    // Default Database Structure (Edit this in HTML code!)
     const defaultDatabase = {
         "Physics": {
             "doctors": ["Dr. Ahmed", "Dr. Mahmoud"],
             "Dr. Ahmed": {
-                "sections": ["📚 Lectures", "📄 Sheets"],
+                "sections": ["📚 Lectures"],
                 "📚 Lectures": [
-                    { name: "Chapter 1: Mechanics Basics.pdf", link: "https://drive.google.com/file/d/1_iodAsHFokkB3rTyGls5hSGET9XuvtWM/view?usp=drivesdk" }
-                ],
-                "📄 Sheets": []
+                    { name: "Chapter 1: Mechanics Basics.pdf", link: "https://drive.google.com/file/d/1_iodAsHFokkB3rTyGls5hSGET9XuvtWM/view?usp=drivesdk" },
+                    { name: "Chapter 2: Motion in One Dimension.pdf", link: "javascript:void(0)" },
+                    { name: "Chapter 3: Vectors.pdf", link: "javascript:void(0)" },
+                    { name: "Chapter 4: Motion in Two Dimensions.pdf", link: "javascript:void(0)" }
+                ]
             },
             "Dr. Mahmoud": {
                 "sections": ["📚 Lectures"],
-                "📚 Lectures": []
+                "📚 Lectures": [
+                     { name: "Lecture 1: Thermodynamics Intro.pdf", link: "javascript:void(0)" },
+                     { name: "Lecture 2: Heat Transfer.pdf", link: "javascript:void(0)" },
+                     { name: "Lecture 3: Kinetic Theory.pdf", link: "javascript:void(0)" },
+                     { name: "Lecture 4: First Law of Thermodynamics.pdf", link: "javascript:void(0)" }
+                ]
             }
         },
         "Chemistry": {
-            "doctors": [],
+            "doctors": ["Dr. Saeed", "Dr. Mona"],
+            "Dr. Saeed": {
+                "sections": ["📚 Lectures"],
+                "📚 Lectures": [
+                    { name: "Unit 1: Atomic Structure.pdf", link: "javascript:void(0)" },
+                    { name: "Unit 2: Chemical Bonding.pdf", link: "javascript:void(0)" },
+                    { name: "Unit 3: Periodic Table.pdf", link: "javascript:void(0)" },
+                    { name: "Unit 4: States of Matter.pdf", link: "javascript:void(0)" }
+                ]
+            },
+            "Dr. Mona": {
+                "sections": ["📚 Lectures"],
+                "📚 Lectures": [
+                     { name: "Analytical Chem: Volumetric Analysis.pdf", link: "javascript:void(0)" },
+                     { name: "Analytical Chem: Gravimetric Analysis.pdf", link: "javascript:void(0)" },
+                     { name: "Qualitative Analysis Flowcharts.pdf", link: "javascript:void(0)" },
+                     { name: "Lab Safety Rules.pdf", link: "javascript:void(0)" }
+                ]
+            }
         },
         "Mathematics": {
-            "doctors": [],
+            "doctors": ["Dr. Kamel", "Dr. Samy"],
+            "Dr. Kamel": {
+                "sections": ["📚 Lectures"],
+                "📚 Lectures": [
+                    { name: "Calculus I: Limits & Continuity.pdf", link: "javascript:void(0)" },
+                    { name: "Calculus II: Differentiation Rules.pdf", link: "javascript:void(0)" },
+                    { name: "Calculus III: Applications of Derivatives.pdf", link: "javascript:void(0)" },
+                    { name: "Integration Techniques.pdf", link: "javascript:void(0)" }
+                ]
+            },
+            "Dr. Samy": {
+                "sections": ["📚 Lectures"],
+                "📚 Lectures": [
+                    { name: "Linear Algebra: Matrices.pdf", link: "javascript:void(0)" },
+                    { name: "Differential Equations.pdf", link: "javascript:void(0)" },
+                    { name: "Geometry: Vectors in 3D.pdf", link: "javascript:void(0)" },
+                    { name: "Complex Numbers Problems.pdf", link: "javascript:void(0)" }
+                ]
+            }
         }
     };
 
@@ -406,17 +437,28 @@
         backSubject: "Back to <b>{name}</b> doctors:",
         backDoctor: "Back to <b>{name}</b> sections:",
         backMain: "Back to Main Menu.",
-        // Database is now part of the config object
         database: defaultDatabase
     };
 
     let CONFIG = { ...defaultConfig };
-    // Global variable for easy access in the bot logic
     let database = CONFIG.database; 
+    let refreshInterval = null;
 
     // ============================================================
-    // === 3. SYNC LOGIC (POLLING) ===
+    // === 2. SYNC LOGIC (Hybrid Control) ===
     // ============================================================
+    function startSync() {
+        if(refreshInterval) clearInterval(refreshInterval);
+        refreshInterval = setInterval(fetchConfig, 15000);
+    }
+
+    function stopSync() {
+        if(refreshInterval) {
+            clearInterval(refreshInterval);
+            refreshInterval = null;
+        }
+    }
+
     function fetchConfig() {
         if (!JSONBIN_BIN_ID || JSONBIN_BIN_ID === "PUT_YOUR_BIN_ID_HERE") {
             applyConfig(CONFIG); return;
@@ -426,10 +468,21 @@
         })
         .then(res => { if (!res.ok) throw new Error("Failed"); return res.json(); })
         .then(data => { 
+            // Apply general settings from Bin
             CONFIG = { ...defaultConfig, ...data }; 
-            // Ensure database structure integrity
-            if(!CONFIG.database) CONFIG.database = defaultDatabase;
-            database = CONFIG.database; 
+            
+            // HYBRID MERGE LOGIC:
+            // We want HTML (defaultDatabase) to be the MASTER for existing items.
+            // We want Admin Panel (Bin) to ADD new items that are not in HTML.
+            // We reverse the spread order for 'database' only.
+            // 1. Start with Bin data (Admin additions).
+            // 2. Overwrite/Extend with HTML data (Your Code).
+            if (data.database) {
+                CONFIG.database = { ...data.database, ...defaultDatabase };
+            } else {
+                CONFIG.database = defaultDatabase;
+            }
+            
             applyConfig(CONFIG); 
         })
         .catch(err => { console.error("Sync Error:", err); });
@@ -438,7 +491,6 @@
     function saveConfigToBin(newConfig) {
         if (!JSONBIN_BIN_ID || JSONBIN_BIN_ID === "PUT_YOUR_BIN_ID_HERE") { alert("❌ Bin ID مفقود!"); return; }
         
-        // Add loading state if needed
         const btnSave = document.querySelector('.btn-save');
         if(btnSave) btnSave.innerText = "جاري الحفظ...";
 
@@ -449,7 +501,12 @@
         })
         .then(res => { if (!res.ok) throw new Error("Save failed"); 
             alert("✅ تم الحفظ بنجاح!");
-            database = newConfig.database; // Update local reference
+            // Update local database immediately to reflect Admin changes
+            database = newConfig.database;
+            // Re-apply HTML logic immediately after saving to keep view consistent
+            CONFIG.database = { ...newConfig.database, ...defaultDatabase };
+            database = CONFIG.database;
+
             if(btnSave) btnSave.innerText = "حفظ الإعدادات";
             window.closeAdminPanel();
         })
@@ -458,7 +515,7 @@
 
     function applyConfig(newConfig) {
         CONFIG = newConfig;
-        database = CONFIG.database; // Critical step
+        database = CONFIG.database; 
         document.getElementById('header-name').innerText = CONFIG.botName;
         document.getElementById('header-status').innerText = CONFIG.botStatus;
         const avatarEl = document.getElementById('header-avatar');
@@ -467,10 +524,8 @@
         } else {
             avatarEl.style.backgroundImage = "none"; avatarEl.innerText = CONFIG.botIcon;
         }
-        // Re-render bot keyboard if open
-        if(document.getElementById('keyboard-area').innerHTML !== "") {
-            renderKeyboard();
-        }
+        // Force re-render keyboard to show changes
+        renderKeyboard();
     }
 
     function replacePlaceholders(text, name) {
@@ -481,7 +536,7 @@
     }
 
     // ============================================================
-    // === 4. BOT LOGIC (Unchanged mostly) ===
+    // === 3. BOT LOGIC ===
     // ============================================================
     let currentSubject = null, currentDoctor = null, currentCategory = null;
     const chatArea = document.getElementById('chat-area');
@@ -490,7 +545,6 @@
     const menuBtn = document.getElementById('menu-btn');
     const menuDropdown = document.getElementById('menu-dropdown');
     
-    // Settings Inputs
     const adminNameInput = document.getElementById('admin-bot-name');
     const adminStatusInput = document.getElementById('admin-bot-status');
     const adminImgInput = document.getElementById('admin-bot-img');
@@ -546,28 +600,31 @@
     }
 
     // ============================================================
-    // === 5. ADMIN PANEL LOGIC (Enhanced) ===
+    // === 4. ADMIN PANEL LOGIC ===
     // ============================================================
-    
-    // Admin Data Navigation State
-    let adminNavStack = []; // Empty = Subjects, ['Physics'] = Doctors, ...
+    let adminNavStack = [];
 
     function openAdminPanel() {
+        stopSync();
         adminNameInput.value = CONFIG.botName; adminStatusInput.value = CONFIG.botStatus;
         adminImgInput.value = CONFIG.botImage || ""; respWelcome.value = CONFIG.welcomeMessage;
         respSubject.value = CONFIG.subjectPrompt; respDoctor.value = CONFIG.doctorPrompt;
         respCategory.value = CONFIG.categoryPrompt;
         
-        // Handle backs split
         const backs = [CONFIG.backSubject, CONFIG.backDoctor, CONFIG.backMain];
         respBacks.value = backs.join(' | ');
 
         renderAdminList(); 
-        renderAdminDataView(); // Render the new Data tab
+        renderAdminDataView(); 
         document.getElementById('admin-modal').classList.add('active');
     }
 
-    window.closeAdminPanel = function() { document.getElementById('admin-modal').classList.remove('active'); }
+    window.closeAdminPanel = function() { 
+        document.getElementById('admin-modal').classList.remove('active'); 
+        startSync();
+        // Ensure UI updates immediately upon closing
+        fetchConfig();
+    }
     
     window.switchTab = function(tabName) {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -579,7 +636,7 @@
         } else {
             document.querySelector('button[onclick="window.switchTab(\'data\')"]').classList.add('active');
             document.getElementById('tab-data').classList.add('active');
-            renderAdminDataView(); // Refresh data view
+            renderAdminDataView();
         }
     }
 
@@ -616,12 +673,12 @@
             backDoctor: backsArr[1] || CONFIG.backDoctor,
             backMain: backsArr[2] || CONFIG.backMain,
             admins: CONFIG.admins,
-            database: database // Save the potentially modified database
+            database: database 
         };
         CONFIG = { ...CONFIG, ...newConfig }; applyConfig(CONFIG); saveConfigToBin(newConfig);
     }
 
-    // === NEW: DATA MANAGEMENT LOGIC ===
+    // === DATA MANAGEMENT LOGIC ===
 
     function renderAdminDataView() {
         const pathContainer = document.getElementById('admin-data-path');
@@ -635,49 +692,39 @@
         addBoxLinkInput.value = '';
         addBoxNameInput.placeholder = "الاسم...";
 
-        // 1. Build Breadcrumb Path
+        // Breadcrumb
         let pathHTML = `<span onclick="window.adminNavTo(-1)">الرئيسية</span>`;
         if (adminNavStack.length > 0) pathHTML += ` > <span onclick="window.adminNavTo(0)">${adminNavStack[0]}</span>`;
         if (adminNavStack.length > 1) pathHTML += ` > <span onclick="window.adminNavTo(1)">${adminNavStack[1]}</span>`;
         if (adminNavStack.length > 2) pathHTML += ` > <span>${adminNavStack[2]}</span>`;
         pathContainer.innerHTML = pathHTML;
 
-        // 2. Determine Level and Render List
         let level = adminNavStack.length;
         let dataList = [];
-        let itemType = ""; // subject, doctor, section, file
 
         if (level === 0) {
-            // List Subjects
-            itemType = "مادة";
             dataList = Object.keys(database);
             addBoxLinkGroup.style.display = 'none';
         } 
         else if (level === 1) {
-            // List Doctors
             const subName = adminNavStack[0];
-            itemType = "دكتور";
             if (database[subName] && database[subName].doctors) {
                 dataList = database[subName].doctors;
             }
             addBoxLinkGroup.style.display = 'none';
         } 
         else if (level === 2) {
-            // List Sections
             const subName = adminNavStack[0];
             const docName = adminNavStack[1];
-            itemType = "قسم";
             if (database[subName] && database[subName][docName] && database[subName][docName].sections) {
                 dataList = database[subName][docName].sections;
             }
             addBoxLinkGroup.style.display = 'none';
         } 
         else if (level === 3) {
-            // List Files
             const subName = adminNavStack[0];
             const docName = adminNavStack[1];
             const secName = adminNavStack[2];
-            itemType = "ملف";
             if (database[subName] && database[subName][docName] && database[subName][docName][secName]) {
                 dataList = database[subName][docName][secName];
             }
@@ -690,7 +737,6 @@
             listContainer.innerHTML = '<div style="text-align:center; color:#666; padding:20px;">لا توجد عناصر</div>';
         } else {
             dataList.forEach((item, index) => {
-                // Handle File Object vs String Name
                 const itemName = (typeof item === 'object') ? item.name : item;
                 
                 const div = document.createElement('div');
@@ -699,7 +745,6 @@
                 const nameSpan = document.createElement('div');
                 nameSpan.className = 'data-name';
                 nameSpan.innerText = itemName;
-                // Navigate action
                 if (level < 3) {
                     nameSpan.onclick = () => {
                         adminNavStack.push(itemName);
@@ -740,31 +785,27 @@
         if (!name) return alert("الرجاء كتابة الاسم");
 
         if (level === 0) {
-            // Add Subject
             if (database[name]) return alert("المادة موجودة بالفعل!");
             database[name] = { doctors: [] };
         } 
         else if (level === 1) {
-            // Add Doctor
             const sub = adminNavStack[0];
             if (!database[sub]) database[sub] = { doctors: [] };
             if (database[sub].doctors.includes(name)) return alert("الدكتور موجود بالفعل!");
             
             database[sub].doctors.push(name);
-            database[sub][name] = { sections: [] }; // Initialize object
+            database[sub][name] = { sections: [] }; 
         } 
         else if (level === 2) {
-            // Add Section
             const sub = adminNavStack[0];
             const doc = adminNavStack[1];
             if (!database[sub][doc]) database[sub][doc] = { sections: [] };
             if (database[sub][doc].sections.includes(name)) return alert("القسم موجود بالفعل!");
 
             database[sub][doc].sections.push(name);
-            database[sub][doc][name] = []; // Initialize array
+            database[sub][doc][name] = []; 
         } 
         else if (level === 3) {
-            // Add File
             const sub = adminNavStack[0];
             const doc = adminNavStack[1];
             const sec = adminNavStack[2];
@@ -778,24 +819,22 @@
     }
 
     function deleteAdminDataItem(index) {
-        if(!confirm("هل أنت متأكد من الحذف؟")) return;
         let level = adminNavStack.length;
 
+        if(!confirm("هل أنت متأكد من الحذف؟")) return;
+
         if (level === 0) {
-            // Delete Subject
             const subKeys = Object.keys(database);
             const subToDelete = subKeys[index];
             delete database[subToDelete];
         } 
         else if (level === 1) {
-            // Delete Doctor
             const sub = adminNavStack[0];
             const docName = database[sub].doctors[index];
             database[sub].doctors.splice(index, 1);
             delete database[sub][docName];
         } 
         else if (level === 2) {
-            // Delete Section
             const sub = adminNavStack[0];
             const doc = adminNavStack[1];
             const secName = database[sub][doc].sections[index];
@@ -803,7 +842,6 @@
             delete database[sub][doc][secName];
         } 
         else if (level === 3) {
-            // Delete File
             const sub = adminNavStack[0];
             const doc = adminNavStack[1];
             const sec = adminNavStack[2];
@@ -812,9 +850,8 @@
         renderAdminDataView();
     }
 
-
     // ============================================================
-    // === 6. KEYBOARD RENDERER (Bot Side) ===
+    // === 5. KEYBOARD RENDERER ===
     // ============================================================
     function resetStateVariables() { currentSubject = null; currentDoctor = null; currentCategory = null; renderKeyboard(); }
 
@@ -868,7 +905,7 @@
         if ('caches' in window) { caches.keys().then(function(names) { for (let name of names) caches.delete(name); }); }
         if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(function(registrations) { for(let registration of registrations) registration.unregister(); }); }
         fetchConfig();
-        setInterval(fetchConfig, 15000); // Check for updates every 15s
+        startSync();
         setTimeout(() => { const welcomeMsg = replacePlaceholders(CONFIG.welcomeMessage, null); botReply(welcomeMsg, true); renderKeyboard(); }, 500);
     };
 
