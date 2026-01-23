@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<html lang="ar" dir="ltr">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>University Library Bot (Ready to Use)</title>
+    <title>University Library Bot (Notifications System)</title>
     
-    <!-- === Firebase SDKs (Compat version for easy usage in HTML) === -->
+    <!-- === Firebase SDKs === -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
@@ -41,11 +41,14 @@
             --file-dummy-bg: rgba(255, 85, 85, 0.1);
             --file-dummy-text: #ff8888;
             --menu-bg: #1d2938;
-            --modal-bg: rgba(0, 0, 0, 0.9);
+            --modal-bg: rgba(0, 0, 0, 0.95);
             --admin-tab-active: #3390ec;
             --admin-tab-inactive: #2b2b2b;
             --danger-color: #ff4444;
             --owner-color: #ffd700; /* Gold for owner */
+            --admin-color: #00e676; /* Green for helper admin */
+            --notification-color: #ff9800; /* Orange for notifications */
+            --broadcast-color: #ffd700; /* Gold for batch rep */
         }
 
         * { box-sizing: border-box; outline: none; }
@@ -98,8 +101,8 @@
 
         /* === Options Menu (Dropdown) === */
         .menu-dropdown {
-            position: absolute; top: 60px; right: 10px;
-            width: 240px; background-color: var(--menu-bg);
+            position: absolute; top: 60px; left: 10px; /* RTL adjusted */
+            width: 260px; background-color: var(--menu-bg);
             border: 1px solid #000; border-radius: 8px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.5);
             display: none; flex-direction: column; z-index: 100;
@@ -112,11 +115,11 @@
         .menu-item.danger { color: #ff6b6b; }
         .menu-item.admin { color: #4dabf7; font-weight: bold; }
         .menu-item.refresh { color: #ffcc00; }
+        .menu-item.notif-toggle { color: var(--notification-color); font-weight: bold; }
         
-        /* Specific styles for Login Status */
-        .menu-item.login-status { pointer-events: none; opacity: 0.7; font-size: 12px; background: rgba(0,0,0,0.2); justify-content: center; padding: 5px; }
         .menu-item.google-auth { color: #fff; }
         .menu-item.google-auth.is-owner { color: var(--owner-color); font-weight: bold; }
+        .menu-item.google-auth.is-admin { color: var(--admin-color); font-weight: bold; }
         
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -136,12 +139,15 @@
         .close-modal:hover { color: #fff; }
 
         /* Admin Tabs */
-        .admin-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .admin-tabs { display: flex; gap: 5px; margin-bottom: 20px; flex-wrap: wrap; }
         .tab-btn {
-            flex: 1; padding: 10px; background: var(--admin-tab-inactive); border: none;
+            padding: 10px; background: var(--admin-tab-inactive); border: none;
             color: #aaa; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s;
+            font-size: 11px; flex: 1; white-space: nowrap;
         }
         .tab-btn.active { background: var(--admin-tab-active); color: #fff; }
+        .tab-btn.owner-only { border: 1px solid var(--owner-color); color: var(--owner-color); }
+        .tab-btn.owner-only.active { background: var(--owner-color); color: #000; }
 
         .tab-content { display: none; }
         .tab-content.active { display: block; }
@@ -149,11 +155,12 @@
         /* Forms */
         .form-group { margin-bottom: 15px; }
         .form-label { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 13px; }
-        .form-input, .form-textarea {
+        .form-input, .form-textarea, .form-select {
             width: 100%; padding: 10px; background: rgba(255,255,255,0.08); border: 1px solid #444;
             border-radius: 6px; color: #fff; outline: none; font-family: inherit; transition: border 0.2s;
         }
-        .form-textarea { height: 60px; resize: vertical; }
+        .form-select { background-color: #1d2938; cursor: pointer; }
+        .form-textarea { height: 80px; resize: vertical; }
         .form-input:focus, .form-textarea:focus { border-color: var(--accent-color); background: rgba(255,255,255,0.12); }
         
         .admin-section-title {
@@ -162,13 +169,15 @@
             text-transform: uppercase; letter-spacing: 0.5px;
         }
 
-        .btn-save {
+        .btn-save, .btn-send, .btn-delete {
             width: 100%; padding: 12px; background-color: var(--accent-color);
             color: #fff; border: none; border-radius: 6px;
             font-size: 16px; font-weight: bold; cursor: pointer;
             margin-top: 20px; transition: background 0.2s;
         }
-        .btn-save:hover { background-color: #267fd3; }
+        .btn-save:hover, .btn-send:hover { background-color: #267fd3; }
+        .btn-delete { background-color: var(--danger-color); margin-top: 5px; }
+        .btn-delete:hover { background-color: #d32f2f; }
 
         .btn-small-remove {
             background: rgba(255, 68, 68, 0.2); color: #ff4444; border: none;
@@ -177,22 +186,38 @@
         .btn-small-remove:hover { background: #ff4444; color: #fff; }
 
         /* Data Management Styles */
-        .data-path { font-size: 12px; color: #888; margin-bottom: 10px; display: flex; align-items: center; gap: 5px; }
+        .data-path { font-size: 12px; color: #888; margin-bottom: 10px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
         .data-path span { cursor: pointer; }
         .data-path span:hover { text-decoration: underline; color: var(--accent-color); }
         
-        .data-list { display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow-y: auto; margin-bottom: 15px; }
+        .data-list { display: flex; flex-direction: column; gap: 8px; max-height: 45vh; overflow-y: auto; margin-bottom: 15px; }
         .data-item {
             display: flex; justify-content: space-between; align-items: center;
             background: rgba(255,255,255,0.05); padding: 10px; border-radius: 6px;
             border: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;
         }
         .data-item:hover { background: rgba(255,255,255,0.1); }
-        .data-name { cursor: pointer; flex: 1; font-weight: 500; }
-        .data-actions { display: flex; gap: 8px; }
-        .btn-sm { padding: 4px 8px; border-radius: 4px; border: none; font-size: 12px; cursor: pointer; font-weight: bold; }
+        .data-name { cursor: pointer; flex: 1; font-weight: 500; word-break: break-all; }
+        .data-actions { display: flex; gap: 5px; align-items: center; }
+        .btn-sm { padding: 4px 8px; border-radius: 4px; border: none; font-size: 11px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 3px;}
         .btn-del { background: rgba(255, 68, 68, 0.2); color: var(--danger-color); }
         .btn-del:hover { background: var(--danger-color); color: #fff; }
+        .btn-edit { background: rgba(51, 144, 236, 0.2); color: var(--accent-color); }
+        .btn-edit:hover { background: var(--accent-color); color: #fff; }
+
+        /* Admin List Styles */
+        .admin-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+        .admin-item {
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(255,255,255,0.05); padding: 10px; border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.05); font-size: 13px;
+        }
+        .admin-name { flex: 1; word-break: break-all; }
+        .btn-remove {
+            background: rgba(255, 68, 68, 0.2); color: #ff4444; border: none;
+            padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;
+        }
+        .btn-remove:hover { background: #ff4444; color: #fff; }
 
         .add-box { background: rgba(51, 144, 236, 0.1); padding: 15px; border-radius: 8px; border: 1px solid rgba(51, 144, 236, 0.3); }
         .add-row { display: flex; gap: 5px; margin-top: 8px; }
@@ -203,19 +228,15 @@
         #chat-area {
             flex: 1; padding: 15px; overflow-y: auto; display: flex;
             flex-direction: column; gap: 12px;
-            background-color: var(--chat-bg); /* Default color */
-            background-size: 20px 20px; /* Default pattern */
+            background-color: var(--chat-bg);
+            background-size: 20px 20px;
             scroll-behavior: smooth;
             transition: background-image 0.3s ease;
             background-repeat: no-repeat;
             background-position: center 70px;
             background-attachment: fixed; 
         }
-        /* When an image is set, these styles override defaults */
-        #chat-area.has-bg {
-            background-size: contain !important; 
-        }
-
+        #chat-area.has-bg { background-size: contain !important; }
         #chat-area::-webkit-scrollbar { width: 5px; }
         #chat-area::-webkit-scrollbar-track { background: transparent; }
         #chat-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
@@ -234,6 +255,20 @@
         .msg-bot b { color: #fff; font-weight: 700; }
         .timestamp { font-size: 10px; color: rgba(255,255,255,0.4); text-align: right; display: block; margin-top: 6px; margin-bottom: 0; float: none; clear: both; user-select: none; }
 
+        /* === Broadcast Message Style === */
+        .broadcast-msg {
+            background: linear-gradient(135deg, #332d00 0%, #4a3d00 100%);
+            border: 1px solid var(--broadcast-color);
+            border-right: 4px solid var(--broadcast-color);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.15);
+        }
+        .broadcast-header {
+            display: flex; align-items: center; gap: 8px; color: var(--broadcast-color); font-weight: bold; margin-bottom: 8px; font-size: 14px;
+        }
+
         /* === File Attachments === */
         .file-link-btn {
             display: flex; align-items: center; gap: 10px;
@@ -250,9 +285,21 @@
             margin-top: 5px; border: 1px solid rgba(255, 85, 85, 0.3);
             font-size: 14px;
         }
+        /* Notification specific styling in chat */
+        .notif-display {
+            background: rgba(255, 152, 0, 0.1);
+            border: 1px solid rgba(255, 152, 0, 0.3);
+            border-left: 4px solid var(--notification-color);
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 5px;
+        }
+        .notif-header {
+            display: flex; justify-content: space-between; font-size: 11px; color: var(--notification-color); margin-bottom: 5px; font-weight: bold;
+        }
 
         /* === Typing Indicator === */
-        .typing-indicator { font-size: 12px; color: var(--text-secondary); margin-left: 15px; margin-bottom: 10px; display: none; font-style: italic; opacity: 0.8; flex-shrink: 0; } 
+        .typing-indicator { font-size: 12px; color: var(--text-secondary); margin-right: 15px; margin-bottom: 10px; display: none; font-style: italic; opacity: 0.8; flex-shrink: 0; } 
         .typing-indicator.active { display: block; }
 
         /* === Keyboard Area === */
@@ -286,18 +333,21 @@
 
 <div class="app-container">
     <header>
+        <div class="header-actions" id="menu-btn" title="Menu">⋮</div>
         <div class="header-info">
-            <div class="bot-avatar" id="header-avatar">🎓</div>
             <div class="bot-name">
                 <h2 id="header-name">University Bot</h2>
                 <span class="bot-status" id="header-status">Online</span>
             </div>
+            <div class="bot-avatar" id="header-avatar">🎓</div>
         </div>
-        
-        <div class="header-actions" id="menu-btn" title="Menu">⋮</div>
 
         <div class="menu-dropdown" id="menu-dropdown">
-            <!-- NEW: Google Login Button -->
+            <!-- NEW: Enable Notifications Button -->
+            <div class="menu-item notif-toggle" onclick="window.enableNotifications()">
+                <span>🔔</span> <span>تفعيل الإشعارات</span>
+            </div>
+
             <div class="menu-item google-auth" id="google-login-btn" onclick="window.toggleGoogleLogin()">
                 <span>🔑</span> <span id="google-login-text">تسجيل الدخول...</span>
             </div>
@@ -331,7 +381,9 @@
 
     <!-- Tabs Navigation -->
     <div class="admin-tabs">
-        <button class="tab-btn active" onclick="window.switchTab('settings')">الإعدادات العامة</button>
+        <button class="tab-btn active" onclick="window.switchTab('settings')">الإعدادات</button>
+        <button class="tab-btn" onclick="window.switchTab('notifications')">📢 إشعار دكتور</button>
+        <button class="tab-btn" onclick="window.switchTab('broadcast')">📣 إذاعة عامة</button>
         <button class="tab-btn" onclick="window.switchTab('data')">إدارة البيانات</button>
     </div>
 
@@ -341,14 +393,12 @@
         <div class="form-group"><label class="form-label">اسم البوت</label><input type="text" id="admin-bot-name" class="form-input"></div>
         <div class="form-group"><label class="form-label">الحالة</label><input type="text" id="admin-bot-status" class="form-input"></div>
         
-        <!-- UPDATED: Icon Upload -->
         <div class="form-group">
             <label class="form-label">أيقونة البوت (رفع صورة)</label>
             <input type="file" id="admin-icon-upload" accept="image/*" style="color: #aaa; font-size: 12px; background: rgba(0,0,0,0.2); padding: 5px;">
-            <button class="btn-small-remove" id="admin-icon-remove" onclick="window.removeBotIcon()">إزالة الصورة (العودة للرمز الافتراضي)</button>
+            <button class="btn-small-remove" id="admin-icon-remove" onclick="window.removeBotIcon()">إزالة الصورة</button>
         </div>
 
-        <!-- UPDATED: Chat Background Upload -->
         <div class="form-group">
             <label class="form-label">خلفية الشات (رفع صورة)</label>
             <input type="file" id="admin-bg-upload" accept="image/*" style="color: #aaa; font-size: 12px; background: rgba(0,0,0,0.2); padding: 5px;">
@@ -361,20 +411,75 @@
         <div class="form-group"><label class="form-label">نص عرض القوائم</label><textarea id="admin-msg-category" class="form-textarea"></textarea></div>
         <div class="form-group"><label class="form-label">نصوص العودة (Back)</label><textarea id="admin-msg-backs" class="form-textarea" placeholder="Back Subject | Back Doctor | Back Main"></textarea></div>
 
-        <div class="admin-section-title">المشرفين</div>
-        <div class="form-group">
-            <label class="form-label">إضافة Admin</label>
-            <div style="display: flex; gap: 5px;">
-                <input type="text" id="admin-add-input" class="form-input">
-                <button class="btn-save" style="width: auto; margin: 0; padding: 0 15px;" onclick="window.addAdmin()">+</button>
+        <!-- RESTRICTED SECTION: ONLY OWNER -->
+        <div id="owner-admin-section" style="display: none;">
+            <div class="admin-section-title" style="color: var(--owner-color);">إدارة المشرفين (للمالك فقط)</div>
+            <div class="form-group">
+                <label class="form-label">إضافة مشرف (أدخل الإيميل)</label>
+                <div style="display: flex; gap: 5px;">
+                    <input type="email" id="admin-add-input" class="form-input" placeholder="admin@example.com">
+                    <button class="btn-save" style="width: auto; margin: 0; padding: 0 15px;" onclick="window.addAdmin()">+</button>
+                </div>
             </div>
+            <div class="admin-list" id="admin-list-container"></div>
         </div>
-        <div class="admin-list" id="admin-list-container"></div>
 
         <button class="btn-save" onclick="window.saveAdminSettings()">حفظ الإعدادات</button>
     </div>
 
-    <!-- Tab 2: Data Management -->
+    <!-- Tab 2: Send Notifications (Doctor Specific) -->
+    <div id="tab-notifications" class="tab-content">
+        <div class="admin-section-title" style="color: var(--notification-color);">إرسال إشعار للطلاب (دكتور)</div>
+        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:15px;">
+            سيتم حفظ هذا الإشعار في قسم "🔔 Notifications" الخاص بالدكتور المختار.
+        </p>
+
+        <div class="form-group">
+            <label class="form-label">اختر المادة</label>
+            <select id="notif-subject-select" class="form-select" onchange="window.populateNotifDoctors()"></select>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">اختر الدكتور</label>
+            <select id="notif-doctor-select" class="form-select" onchange="window.loadNotifPreview()"></select>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">نص الرسالة</label>
+            <textarea id="notif-message-text" class="form-textarea" placeholder="اكتب المعلومة المهمة هنا..."></textarea>
+        </div>
+
+        <button class="btn-send" onclick="window.sendDoctorNotification()">إرسال الإشعار</button>
+    </div>
+
+    <!-- Tab 3: General Broadcast (Owner Only) -->
+    <div id="tab-broadcast" class="tab-content">
+        <div class="admin-section-title" style="color: var(--broadcast-color);">إذاعة عامة (مندوب الدفعة)</div>
+        <div style="background: rgba(255, 215, 0, 0.1); padding: 10px; border-radius: 6px; border: 1px solid var(--broadcast-color); margin-bottom: 15px;">
+            <p style="font-size:12px; color:#ddd;">
+                هذه الرسالة ستظهر لجميع المستخدمين في أعلى الشات كرسالة مميزة، وسصدر إشعار فوري لهم.
+            </p>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">عنوان الرسالة</label>
+            <input type="text" id="broadcast-title" class="form-input" placeholder="مثال: تغيير في جدول المحاضرات">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">نص الرسالة</label>
+            <textarea id="broadcast-body" class="form-textarea" style="height: 100px;" placeholder="اكتب التفاصيل هنا..."></textarea>
+        </div>
+
+        <button class="btn-save" style="background-color: var(--broadcast-color); color: #000;" onclick="window.saveBroadcast()">نشر الإذاعة</button>
+        <button class="btn-delete" onclick="window.deleteBroadcast()">حذف الإذاعة الحالية</button>
+        
+        <div id="broadcast-preview" style="margin-top: 20px; border-top: 1px solid #333; padding-top: 10px;">
+            <!-- Preview logic -->
+        </div>
+    </div>
+
+    <!-- Tab 4: Data Management -->
     <div id="tab-data" class="tab-content">
         <div class="data-path" id="admin-data-path">الرئيسية</div>
         
@@ -399,7 +504,85 @@
 
 <script>
     // ============================================================
-    // === 0. FIREBASE CONFIGURATION (USER KEYS) ===
+    // === 0. SERVICE WORKER CODE (Background Notifications) ===
+    // ============================================================
+    const swCode = `
+        const CACHE_VERSION = 'v2';
+        const BIN_ID = "696e77bfae596e708fe71e9d";
+        const BIN_KEY = "$2a$10$TunKuA35QdJp478eIMXxRunQfqgmhDY3YAxBXUXuV/JrgIFhU0Lf2";
+
+        let lastNotifTime = 0;
+        let lastBroadcastTime = 0;
+        let fetchInterval;
+
+        self.addEventListener('install', event => {
+            self.skipWaiting();
+        });
+
+        self.addEventListener('activate', event => {
+            event.waitUntil(self.clients.claim());
+        });
+
+        function checkNotifications() {
+            fetch('https://api.jsonbin.io/v3/b/'+BIN_ID+'/latest', {
+                headers: { 'X-Master-Key': BIN_KEY, 'X-Bin-Meta': 'false' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                // Check Doctor Notifications
+                if (data.latestNotificationUpdate && data.latestNotificationUpdate > lastNotifTime) {
+                    lastNotifTime = data.latestNotificationUpdate;
+                    if (Notification.permission === 'granted') {
+                        self.registration.showNotification('📢 رسالة جديدة من الدكتور', {
+                            body: 'اضغط لقراءة التفاصيل',
+                            icon: 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png',
+                            requireInteraction: false
+                        });
+                    }
+                }
+
+                // Check General Broadcast
+                if (data.generalBroadcast && data.generalBroadcast.active && data.generalBroadcast.timestamp > lastBroadcastTime) {
+                    lastBroadcastTime = data.generalBroadcast.timestamp;
+                    if (Notification.permission === 'granted') {
+                        self.registration.showNotification('📣 رسالة من مندوب الدفعة', {
+                            body: data.generalBroadcast.title + ': ' + data.generalBroadcast.body,
+                            icon: 'https://cdn-icons-png.flaticon.com/512/1828/1828884.png',
+                            requireInteraction: true
+                        });
+                    }
+                }
+            })
+            .catch(err => console.error('SW Fetch Error:', err));
+        }
+
+        self.addEventListener('notificationclick', event => {
+            event.notification.close();
+            event.waitUntil(
+                clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+                    for (const client of clientList) {
+                        if (client.url === self.location.href && 'focus' in client) {
+                            return client.focus();
+                        }
+                    }
+                    if (clients.openWindow) {
+                        return clients.openWindow(self.location.href);
+                    }
+                })
+            );
+        });
+
+        self.addEventListener('activate', () => {
+            fetchInterval = setInterval(checkNotifications, 60000); // Check every minute
+            checkNotifications();
+        });
+    `;
+
+    const swBlob = new Blob([swCode], {type: 'application/javascript'});
+    const swUrl = URL.createObjectURL(swBlob);
+
+    // ============================================================
+    // === 1. FIREBASE CONFIGURATION ===
     // ============================================================
     const firebaseConfig = {
       apiKey: "AIzaSyBUzcbZDAFS3rhjcp2-maEiSTmuBmUlGPQ",
@@ -410,7 +593,6 @@
       appId: "1:371129360013:web:377ef70759204018a60cc4"
     };
 
-    // Initialize Firebase
     let auth;
     try {
         firebase.initializeApp(firebaseConfig);
@@ -419,11 +601,10 @@
         console.error("Firebase Init Error", e);
     }
 
-    // Owner Settings
     const OWNER_EMAIL = "peacemaker3050@gmail.com";
 
     // ============================================================
-    // === 1. CONFIGURATION & DEFAULTS ===
+    // === 2. CONFIGURATION & DEFAULTS ===
     // ============================================================
     const JSONBIN_BIN_ID = "696e77bfae596e708fe71e9d";
     const JSONBIN_ACCESS_KEY = "$2a$10$TunKuA35QdJp478eIMXxRunQfqgmhDY3YAxBXUXuV/JrgIFhU0Lf2";
@@ -432,65 +613,28 @@
         "Physics": {
             "doctors": ["Dr. Ahmed", "Dr. Mahmoud"],
             "Dr. Ahmed": {
-                "sections": ["📚 Lectures"],
+                "sections": ["📚 Lectures", "🔔 Notifications"],
                 "📚 Lectures": [
                     { name: "Chapter 1: Mechanics Basics.pdf", link: "https://drive.google.com/file/d/1_iodAsHFokkB3rTyGls5hSGET9XuvtWM/view?usp=drivesdk" },
-                    { name: "Chapter 2: Motion in One Dimension.pdf", link: "javascript:void(0)" },
-                    { name: "Chapter 3: Vectors.pdf", link: "javascript:void(0)" },
-                    { name: "Chapter 4: Motion in Two Dimensions.pdf", link: "javascript:void(0)" }
-                ]
+                    { name: "Chapter 2: Motion in One Dimension.pdf", link: "javascript:void(0)" }
+                ],
+                "🔔 Notifications": []
             },
             "Dr. Mahmoud": {
-                "sections": ["📚 Lectures"],
-                "📚 Lectures": [
-                     { name: "Lecture 1: Thermodynamics Intro.pdf", link: "javascript:void(0)" },
-                     { name: "Lecture 2: Heat Transfer.pdf", link: "javascript:void(0)" },
-                     { name: "Lecture 3: Kinetic Theory.pdf", link: "javascript:void(0)" },
-                     { name: "Lecture 4: First Law of Thermodynamics.pdf", link: "javascript:void(0)" }
-                ]
+                "sections": ["📚 Lectures", "🔔 Notifications"],
+                "📚 Lectures": [ { name: "Lecture 1: Thermodynamics Intro.pdf", link: "javascript:void(0)" } ],
+                "🔔 Notifications": []
             }
         },
         "Chemistry": {
             "doctors": ["Dr. Saeed", "Dr. Mona"],
-            "Dr. Saeed": {
-                "sections": ["📚 Lectures"],
-                "📚 Lectures": [
-                    { name: "Unit 1: Atomic Structure.pdf", link: "javascript:void(0)" },
-                    { name: "Unit 2: Chemical Bonding.pdf", link: "javascript:void(0)" },
-                    { name: "Unit 3: Periodic Table.pdf", link: "javascript:void(0)" },
-                    { name: "Unit 4: States of Matter.pdf", link: "javascript:void(0)" }
-                ]
-            },
-            "Dr. Mona": {
-                "sections": ["📚 Lectures"],
-                "📚 Lectures": [
-                     { name: "Analytical Chem: Volumetric Analysis.pdf", link: "javascript:void(0)" },
-                     { name: "Analytical Chem: Gravimetric Analysis.pdf", link: "javascript:void(0)" },
-                     { name: "Qualitative Analysis Flowcharts.pdf", link: "javascript:void(0)" },
-                     { name: "Lab Safety Rules.pdf", link: "javascript:void(0)" }
-                ]
-            }
+            "Dr. Saeed": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] },
+            "Dr. Mona": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] }
         },
         "Mathematics": {
             "doctors": ["Dr. Kamel", "Dr. Samy"],
-            "Dr. Kamel": {
-                "sections": ["📚 Lectures"],
-                "📚 Lectures": [
-                    { name: "Calculus I: Limits & Continuity.pdf", link: "javascript:void(0)" },
-                    { name: "Calculus II: Differentiation Rules.pdf", link: "javascript:void(0)" },
-                    { name: "Calculus III: Applications of Derivatives.pdf", link: "javascript:void(0)" },
-                    { name: "Integration Techniques.pdf", link: "javascript:void(0)" }
-                ]
-            },
-            "Dr. Samy": {
-                "sections": ["📚 Lectures"],
-                "📚 Lectures": [
-                    { name: "Linear Algebra: Matrices.pdf", link: "javascript:void(0)" },
-                    { name: "Differential Equations.pdf", link: "javascript:void(0)" },
-                    { name: "Geometry: Vectors in 3D.pdf", link: "javascript:void(0)" },
-                    { name: "Complex Numbers Problems.pdf", link: "javascript:void(0)" }
-                ]
-            }
+            "Dr. Kamel": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] },
+            "Dr. Samy": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] }
         }
     };
 
@@ -501,7 +645,9 @@
         botImage: "", 
         chatBgImage: "", 
         typingSpeed: 600, 
-        admins: ["owner"],
+        admins: [], 
+        latestNotificationUpdate: 0,
+        generalBroadcast: { active: false, title: "", body: "", timestamp: 0 },
         welcomeMessage: "Welcome! 🎓<br>This is <b>{botName}</b>.<br>Please select a subject to begin.",
         subjectPrompt: "<b>{name}</b>\nPlease select a Doctor 👇",
         doctorPrompt: "<b>{name}</b>\nSelect a section 👇",
@@ -517,25 +663,21 @@
     let refreshInterval = null;
 
     // ============================================================
-    // === 2. AUTH LOGIC (Google) ===
+    // === 3. AUTH LOGIC ===
     // ============================================================
     window.toggleGoogleLogin = function() {
         if (!auth) { alert("Firebase not configured correctly."); return; }
-        
         const user = auth.currentUser;
         if (user) {
-            // Logout
             auth.signOut().then(() => {
                 console.log("User signed out.");
-            }).catch((error) => {
-                console.error("Sign out error", error);
-            });
+                window.location.reload(); // Reload to clear UI state
+            }).catch((error) => console.error("Sign out error", error));
         } else {
-            // Login
             const provider = new firebase.auth.GoogleAuthProvider();
             auth.signInWithPopup(provider).then((result) => {
-                // User signed in
                 console.log("User signed in:", result.user);
+                window.updateAuthUI();
             }).catch((error) => {
                 console.error("Login error", error);
                 alert("فشل تسجيل الدخول: " + error.message);
@@ -545,40 +687,43 @@
 
     function initFirebaseAuth() {
         if (!auth) return;
-        
         auth.onAuthStateChanged((user) => {
-            const loginBtn = document.getElementById('google-login-btn');
-            const loginText = document.getElementById('google-login-text');
-            const loginIcon = loginBtn.querySelector('span:first-child');
-
-            if (user) {
-                // User is signed in
-                const email = user.email;
-                
-                if (email === OWNER_EMAIL) {
-                    // Owner State
-                    loginText.innerText = "👑 المالك (Owner)";
-                    loginBtn.classList.add('is-owner');
-                    loginIcon.innerText = "👑";
-                    console.log("Owner logged in");
-                } else {
-                    // Normal User State
-                    loginText.innerText = "✅ تم تسجيل الدخول";
-                    loginBtn.classList.remove('is-owner');
-                    loginIcon.innerText = "✅";
-                    console.log("User logged in:", email);
-                }
-            } else {
-                // User is signed out
-                loginText.innerText = "🔑 تسجيل الدخول (Google)";
-                loginBtn.classList.remove('is-owner');
-                loginIcon.innerText = "🔑";
-            }
+            window.updateAuthUI();
         });
     }
 
+    window.updateAuthUI = function() {
+        const loginBtn = document.getElementById('google-login-btn');
+        const loginText = document.getElementById('google-login-text');
+        const loginIcon = loginBtn.querySelector('span:first-child');
+        const user = auth ? auth.currentUser : null;
+
+        if (user) {
+            const email = user.email;
+            if (email === OWNER_EMAIL) {
+                loginText.innerText = "👑 المالك (Owner)";
+                loginBtn.classList.add('is-owner');
+                loginBtn.classList.remove('is-admin');
+                loginIcon.innerText = "👑";
+            } else if (CONFIG.admins && CONFIG.admins.includes(email)) {
+                loginText.innerText = "🛡️ مساعد (Admin)";
+                loginBtn.classList.add('is-admin');
+                loginBtn.classList.remove('is-owner');
+                loginIcon.innerText = "🛡️";
+            } else {
+                loginText.innerText = "✅ تم تسجيل الدخول";
+                loginBtn.classList.remove('is-owner', 'is-admin');
+                loginIcon.innerText = "✅";
+            }
+        } else {
+            loginText.innerText = "🔑 تسجيل الدخول (Google)";
+            loginBtn.classList.remove('is-owner', 'is-admin');
+            loginIcon.innerText = "🔑";
+        }
+    }
+
     // ============================================================
-    // === 3. IMAGE COMPRESSOR ===
+    // === 4. IMAGE COMPRESSOR ===
     // ============================================================
     function compressImage(file, callback) {
         const reader = new FileReader();
@@ -587,40 +732,23 @@
             const img = new Image();
             img.src = event.target.result;
             img.onload = () => {
-                let width = img.width;
-                let height = img.height;
+                let width = img.width; let height = img.height;
                 const MAX_SIZE = 800; 
-
-                if (width > height) {
-                    if (width > MAX_SIZE) {
-                        height *= MAX_SIZE / width;
-                        width = MAX_SIZE;
-                    }
-                } else {
-                    if (height > MAX_SIZE) {
-                        width *= MAX_SIZE / height;
-                        height = MAX_SIZE;
-                    }
-                }
-                
+                if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } 
+                else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
                 const canvas = document.createElement('canvas');
-                canvas.width = width;
-                canvas.height = height;
+                canvas.width = width; canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
-                
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
                 callback(dataUrl);
             };
-            reader.onerror = (err) => {
-                console.log(err);
-                alert("Error processing image");
-            };
+            reader.onerror = (err) => { console.log(err); alert("Error processing image"); };
         };
     }
 
     // ============================================================
-    // === 4. SYNC LOGIC ===
+    // === 5. SYNC LOGIC ===
     // ============================================================
     function startSync() {
         if(refreshInterval) clearInterval(refreshInterval);
@@ -628,40 +756,28 @@
     }
 
     function stopSync() {
-        if(refreshInterval) {
-            clearInterval(refreshInterval);
-            refreshInterval = null;
-        }
+        if(refreshInterval) { clearInterval(refreshInterval); refreshInterval = null; }
     }
 
     function fetchConfig() {
-        if (!JSONBIN_BIN_ID || JSONBIN_BIN_ID === "PUT_YOUR_BIN_ID_HERE") {
-            applyConfig(CONFIG); return;
-        }
         fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
             headers: { 'X-Master-Key': JSONBIN_ACCESS_KEY, 'X-Bin-Meta': 'false' }
         })
         .then(res => { if (!res.ok) throw new Error("Failed"); return res.json(); })
         .then(data => { 
             CONFIG = { ...defaultConfig, ...data }; 
-            
-            if (data.database) {
-                CONFIG.database = { ...data.database, ...defaultDatabase };
-            } else {
-                CONFIG.database = defaultDatabase;
-            }
-            
+            if (data.database) CONFIG.database = { ...data.database, ...defaultDatabase };
+            else CONFIG.database = defaultDatabase;
             applyConfig(CONFIG); 
         })
         .catch(err => { console.error("Sync Error:", err); });
     }
 
     function saveConfigToBin(newConfig) {
-        if (!JSONBIN_BIN_ID || JSONBIN_BIN_ID === "PUT_YOUR_BIN_ID_HERE") { alert("❌ Bin ID مفقود!"); return; }
-        
         const btnSave = document.querySelector('.btn-save');
+        const originalText = btnSave.innerText;
         if(btnSave) btnSave.innerText = "جاري الحفظ...";
-
+        
         fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_ACCESS_KEY },
@@ -672,48 +788,71 @@
             database = newConfig.database;
             CONFIG.database = { ...newConfig.database, ...defaultDatabase };
             database = CONFIG.database;
-
-            if(btnSave) btnSave.innerText = "حفظ الإعدادات";
-            window.closeAdminPanel();
+            if(btnSave) btnSave.innerText = originalText;
         })
-        .catch(err => { alert("❌ خطأ: " + err.message + "\nقد تكون الصورة كبيرة جداً رغم الضغط."); if(btnSave) btnSave.innerText = "حفظ الإعدادات"; });
+        .catch(err => { alert("❌ خطأ: " + err.message); if(btnSave) btnSave.innerText = originalText; });
     }
 
     function applyConfig(newConfig) {
         CONFIG = newConfig;
         database = CONFIG.database; 
-
         document.getElementById('header-name').innerText = CONFIG.botName;
         document.getElementById('header-status').innerText = CONFIG.botStatus;
 
-        // Avatar Logic
         const avatarEl = document.getElementById('header-avatar');
         if (CONFIG.botImage && CONFIG.botImage.trim().length > 10) {
-            avatarEl.style.backgroundImage = `url('${CONFIG.botImage}')`; 
-            avatarEl.style.backgroundSize = "cover";
-            avatarEl.style.backgroundPosition = "center";
-            avatarEl.innerText = ""; 
-        } else {
-            avatarEl.style.backgroundImage = "none"; 
-            avatarEl.innerText = CONFIG.botIcon;
-        }
+            avatarEl.style.backgroundImage = `url('${CONFIG.botImage}')`; avatarEl.style.backgroundSize = "cover"; avatarEl.style.backgroundPosition = "center"; avatarEl.innerText = ""; 
+        } else { avatarEl.style.backgroundImage = "none"; avatarEl.innerText = CONFIG.botIcon; }
 
-        // Chat Background Logic
         const chatArea = document.getElementById('chat-area');
         if (CONFIG.chatBgImage && CONFIG.chatBgImage.trim().length > 10) {
-            chatArea.style.backgroundImage = `url('${CONFIG.chatBgImage}')`;
-            chatArea.style.backgroundSize = "contain"; 
-            chatArea.style.backgroundColor = "transparent"; 
-            chatArea.classList.add('has-bg');
-        } else {
-            chatArea.style.backgroundImage = "none";
-            chatArea.style.backgroundColor = "var(--chat-bg)";
-            chatArea.style.backgroundSize = "20px 20px"; 
-            chatArea.classList.remove('has-bg');
-        }
+            chatArea.style.backgroundImage = `url('${CONFIG.chatBgImage}')`; chatArea.style.backgroundSize = "contain"; chatArea.style.backgroundColor = "transparent"; chatArea.classList.add('has-bg');
+        } else { chatArea.style.backgroundImage = "none"; chatArea.style.backgroundColor = "var(--chat-bg)"; chatArea.style.backgroundSize = "20px 20px"; chatArea.classList.remove('has-bg'); }
 
+        // Check Auth UI update on sync
+        window.updateAuthUI();
         renderKeyboard();
+        
+        // Display Broadcast if active
+        checkAndShowBroadcast();
     }
+
+    function checkAndShowBroadcast() {
+        // Remove existing broadcast message from DOM to avoid duplicates
+        const existingBroadcast = document.getElementById('app-broadcast-msg');
+        if (existingBroadcast) existingBroadcast.remove();
+
+        if (CONFIG.generalBroadcast && CONFIG.generalBroadcast.active) {
+            const localSeenTime = localStorage.getItem('lastSeenBroadcastTime') || 0;
+            // Only show if new or forced (logic simplified: always show for now as per request emphasis, but check LS to hide if needed)
+            // To allow users to dismiss it, we check localStorage.
+            if (parseInt(CONFIG.generalBroadcast.timestamp) > parseInt(localSeenTime)) {
+                const broadcastHTML = `
+                    <div id="app-broadcast-msg" class="message msg-bot broadcast-msg">
+                        <div class="broadcast-header">
+                            <span>📣</span> <span>رسالة من مندوب الدفعة</span>
+                        </div>
+                        <div><b>${CONFIG.generalBroadcast.title}</b></div>
+                        <div style="margin-top:5px; font-size:14px; line-height:1.4;">${CONFIG.generalBroadcast.body}</div>
+                        <span class="timestamp">${new Date(parseInt(CONFIG.generalBroadcast.timestamp)).toLocaleString()}</span>
+                    </div>
+                `;
+                // Insert at top of chat (after welcome if welcome exists)
+                const chatArea = document.getElementById('chat-area');
+                chatArea.insertAdjacentHTML('afterbegin', broadcastHTML);
+            }
+        }
+    }
+
+    // Broadcast Interaction: When user clicks, mark as seen
+    document.getElementById('chat-area').addEventListener('click', (e) => {
+        const broadcastEl = document.getElementById('app-broadcast-msg');
+        if (broadcastEl && broadcastEl.contains(e.target)) {
+            if (CONFIG.generalBroadcast && CONFIG.generalBroadcast.timestamp) {
+                localStorage.setItem('lastSeenBroadcastTime', CONFIG.generalBroadcast.timestamp);
+            }
+        }
+    });
 
     function replacePlaceholders(text, name) {
         let res = text || "";
@@ -723,7 +862,186 @@
     }
 
     // ============================================================
-    // === 5. BOT LOGIC ===
+    // === 6. NOTIFICATION SYSTEM (ADMIN SIDE) ===
+    // ============================================================
+    
+    // --- Helper: Check Access (Owner or Admin) ---
+    function hasAdminAccess() {
+        const user = auth.currentUser;
+        if (!user) return false;
+        const email = user.email;
+        return email === OWNER_EMAIL || (CONFIG.admins && CONFIG.admins.includes(email));
+    }
+
+    // --- Doctor Notification ---
+    window.populateNotifSubjects = function() {
+        const select = document.getElementById('notif-subject-select');
+        select.innerHTML = '<option value="">-- اختر المادة --</option>';
+        const subjects = Object.keys(database);
+        subjects.forEach(sub => {
+            const opt = document.createElement('option'); opt.value = sub; opt.innerText = sub; select.appendChild(opt);
+        });
+    };
+
+    window.populateNotifDoctors = function() {
+        const subject = document.getElementById('notif-subject-select').value;
+        const docSelect = document.getElementById('notif-doctor-select');
+        docSelect.innerHTML = '<option value="">-- اختر الدكتور --</option>';
+        
+        if(subject && database[subject] && database[subject].doctors) {
+            database[subject].doctors.forEach(doc => {
+                const opt = document.createElement('option'); opt.value = doc; opt.innerText = doc; docSelect.appendChild(opt);
+            });
+        }
+        window.loadNotifPreview();
+    };
+
+    window.sendDoctorNotification = function() {
+        if (!hasAdminAccess()) return alert("❌ ليس لديك صلاحية.");
+        
+        const subject = document.getElementById('notif-subject-select').value;
+        const doctor = document.getElementById('notif-doctor-select').value;
+        const message = document.getElementById('notif-message-text').value.trim();
+
+        if(!subject || !doctor || !message) return alert("الرجاء ملء جميع الحقول");
+
+        const timestamp = new Date().toLocaleString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const fullDate = new Date().getTime();
+
+        // Ensure Structure
+        if (!database[subject][doctor].sections) database[subject][doctor].sections = [];
+        if (!database[subject][doctor].sections.includes("🔔 Notifications")) {
+            database[subject][doctor].sections.unshift("🔔 Notifications");
+        }
+        if (!database[subject][doctor]["🔔 Notifications"]) database[subject][doctor]["🔔 Notifications"] = [];
+
+        // Add Notification Object with Unique ID
+        database[subject][doctor]["🔔 Notifications"].unshift({
+            id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+            name: message,
+            date: timestamp,
+            type: "notif",
+            fullDate: fullDate
+        });
+
+        // Update Config
+        CONFIG.latestNotificationUpdate = fullDate;
+        CONFIG.database = database;
+        
+        const saveBtn = document.querySelector('#tab-notifications .btn-send');
+        saveBtn.innerText = "جاري الإرسال...";
+        saveBtn.disabled = true;
+
+        fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_ACCESS_KEY },
+            body: JSON.stringify(CONFIG)
+        })
+        .then(res => {
+            if (!res.ok) throw new Error("Send failed");
+            alert("✅ تم إرسال الإشعار!");
+            document.getElementById('notif-message-text').value = "";
+            saveBtn.innerText = "إرسال الإشعار";
+            saveBtn.disabled = false;
+        })
+        .catch(err => {
+            alert("❌ خطأ: " + err.message);
+            saveBtn.innerText = "إرسال الإشعار";
+            saveBtn.disabled = false;
+        });
+    };
+
+    window.loadNotifPreview = function() {
+        // Placeholder if we want to show recent notifs in the tab later
+    };
+
+    // --- General Broadcast (Owner Only) ---
+    window.saveBroadcast = function() {
+        // Allow Owner OR Password User
+        const user = auth.currentUser;
+        const email = user ? user.email : null;
+        const isOwner = email === OWNER_EMAIL;
+        
+        // Check if user is not owner, we prompt for password if not already checked in this session? 
+        // For simplicity in this single page flow, we rely on the CheckAdmin gate to open the panel. 
+        // But here we double check. Since the button is visible, let's add a password prompt if not owner.
+        let allowed = isOwner;
+        
+        if (!allowed) {
+            const pass = prompt("هذا الأمر للمالك فقط. أدخل كلمة المرور:");
+            if (pass === "1234") allowed = true;
+        }
+
+        if (!allowed) return alert("❌ ليس لديك صلاحية.");
+
+        const title = document.getElementById('broadcast-title').value.trim();
+        const body = document.getElementById('broadcast-body').value.trim();
+
+        if(!title || !body) return alert("الرجاء كتابة العنوان والنص");
+
+        CONFIG.generalBroadcast = {
+            active: true,
+            title: title,
+            body: body,
+            timestamp: Date.now()
+        };
+
+        const saveBtn = document.querySelector('#tab-broadcast .btn-save');
+        saveBtn.innerText = "جاري النشر...";
+
+        fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_ACCESS_KEY },
+            body: JSON.stringify(CONFIG)
+        })
+        .then(res => {
+            if (!res.ok) throw new Error("Save failed");
+            alert("✅ تم نشر الإذاعة!");
+            saveBtn.innerText = "نشر الإذاعة";
+            checkAndShowBroadcast();
+        })
+        .catch(err => {
+            alert("❌ خطأ: " + err.message);
+            saveBtn.innerText = "نشر الإذاعة";
+        });
+    };
+
+    window.deleteBroadcast = function() {
+         // Same Access Logic
+        const user = auth.currentUser;
+        const email = user ? user.email : null;
+        const isOwner = email === OWNER_EMAIL;
+        let allowed = isOwner;
+        if (!allowed) {
+            const pass = prompt("أدخل كلمة المرور:");
+            if (pass === "1234") allowed = true;
+        }
+        if (!allowed) return alert("❌ ليس لديك صلاحية.");
+
+        if(!confirm("هل أنت متأكد من حذف الإذاعة؟")) return;
+
+        CONFIG.generalBroadcast = { active: false, title: "", body: "", timestamp: 0 };
+        document.getElementById('broadcast-title').value = "";
+        document.getElementById('broadcast-body').value = "";
+        
+        fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_ACCESS_KEY },
+            body: JSON.stringify(CONFIG)
+        })
+        .then(res => {
+            if (!res.ok) throw new Error("Delete failed");
+            alert("✅ تم الحذف.");
+            // Remove from DOM immediately
+            const existing = document.getElementById('app-broadcast-msg');
+            if(existing) existing.remove();
+        })
+        .catch(err => alert("❌ خطأ: " + err.message));
+    };
+
+
+    // ============================================================
+    // === 7. BOT LOGIC ===
     // ============================================================
     let currentSubject = null, currentDoctor = null, currentCategory = null;
     const chatArea = document.getElementById('chat-area');
@@ -774,7 +1092,9 @@
     document.addEventListener('click', (e) => { if (!menuDropdown.contains(e.target) && e.target !== menuBtn) menuDropdown.classList.remove('active'); });
 
     window.clearChat = function() {
-        chatArea.innerHTML = ''; resetStateVariables(); menuDropdown.classList.remove('active');
+        chatArea.innerHTML = ''; 
+        // We don't clear the broadcast from localStorage, user just clears chat view
+        resetStateVariables(); menuDropdown.classList.remove('active');
         setTimeout(() => { botReply("Chat cleared. 🧹<br>Welcome back! Choose a subject 👇", true); }, 100);
     }
     window.resetBot = function() {
@@ -782,51 +1102,50 @@
         addMessage("🏠 Back to Main Menu", 'user'); botReply("Bot restarted. Please select a subject 👇", true);
     }
 
-    // === UPDATED ADMIN CHECK WITH GOOGLE AUTH ===
+    // Enable Notifications
+    window.enableNotifications = function() {
+        menuDropdown.classList.remove('active');
+        if (!('Notification' in window)) {
+            alert("متصفحك لا يدعم الإشعارات.");
+            return;
+        }
+        Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+                alert("✅ تم تفعيل الإشعارات بنجاح!");
+                new Notification("تم التفعيل", { body: "ستصلك رسائل الدكاترة والإذاعات الآن." });
+            } else {
+                alert("❌ لم يتم السماح بالإشعارات. يمكنك تفعيلها من إعدادات المتصفح.");
+            }
+        });
+    };
+
     window.checkAdmin = function() {
         menuDropdown.classList.remove('active');
-        
-        // Check if logged in with Google
         if (auth && auth.currentUser) {
-            if (auth.currentUser.email === OWNER_EMAIL) {
-                // Owner Access Granted
+            const email = auth.currentUser.email;
+            if (email === OWNER_EMAIL || (CONFIG.admins && CONFIG.admins.includes(email))) {
                 openAdminPanel();
                 return;
-            } else {
-                // Logged in but not owner
-                alert("❌ ليس لديك صلاحيات المالك (Owner) للدخول.\nأنت مسجل كـ: " + auth.currentUser.email);
-                return;
             }
+            alert("❌ ليس لديك صلاحيات للدخول.\nأنت مسجل كـ: " + email);
+            return;
         }
-
-        // Fallback to password prompt
         const password = prompt("الرجاء إدخال كلمة مرور المسؤول:");
         if (password === "1234") openAdminPanel();
         else if (password !== null) alert("❌ كلمة المرور خاطئة!");
     }
 
-    // ============================================================
-    // === 6. FIX: FORCE RELOAD ===
-    // ============================================================
     window.forceReload = function() {
         document.getElementById('menu-dropdown').classList.remove('active');
         if(confirm("سيتم مسح الذاكرة المؤقتة وإعادة تحميل الصفحة.")) {
-            if ('caches' in window) { 
-                caches.keys().then(function(names) { 
-                    for (let name of names) caches.delete(name); 
-                }); 
-            }
-            if ('serviceWorker' in navigator) { 
-                navigator.serviceWorker.getRegistrations().then(function(registrations) { 
-                    for(let registration of registrations) registration.unregister(); 
-                }); 
-            }
+            if ('caches' in window) { caches.keys().then(function(names) { for (let name of names) caches.delete(name); }); }
+            if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(function(registrations) { for(let registration of registrations) registration.unregister(); }); }
             window.location.href = window.location.href.split('?')[0] + '?t=' + new Date().getTime();
         }
     };
 
     // ============================================================
-    // === 7. ADMIN PANEL LOGIC ===
+    // === 8. ADMIN PANEL LOGIC ===
     // ============================================================
     let adminNavStack = [];
 
@@ -835,72 +1154,40 @@
         adminNameInput.value = CONFIG.botName; adminStatusInput.value = CONFIG.botStatus;
         
         adminIconUpload.value = ""; 
-        if(CONFIG.botImage) {
-            adminIconRemove.style.display = 'inline-block';
-        } else {
-            adminIconRemove.style.display = 'none';
-        }
+        if(CONFIG.botImage) adminIconRemove.style.display = 'inline-block'; else adminIconRemove.style.display = 'none';
 
         adminBgUpload.value = ""; 
-        if(CONFIG.chatBgImage) {
-            adminBgRemove.style.display = 'inline-block';
-        } else {
-            adminBgRemove.style.display = 'none';
-        }
+        if(CONFIG.chatBgImage) adminBgRemove.style.display = 'inline-block'; else adminBgRemove.style.display = 'none';
 
-        respWelcome.value = CONFIG.welcomeMessage;
-        respSubject.value = CONFIG.subjectPrompt; respDoctor.value = CONFIG.doctorPrompt;
-        respCategory.value = CONFIG.categoryPrompt;
-        
+        respWelcome.value = CONFIG.welcomeMessage; respSubject.value = CONFIG.subjectPrompt; 
+        respDoctor.value = CONFIG.doctorPrompt; respCategory.value = CONFIG.categoryPrompt;
         const backs = [CONFIG.backSubject, CONFIG.backDoctor, CONFIG.backMain];
         respBacks.value = backs.join(' | ');
 
-        renderAdminList(); 
+        const ownerSection = document.getElementById('owner-admin-section');
+        if (auth && auth.currentUser && auth.currentUser.email === OWNER_EMAIL) {
+            ownerSection.style.display = 'block'; renderAdminList();
+        } else { ownerSection.style.display = 'none'; }
+
+        // Broadcast Init
+        if(CONFIG.generalBroadcast && CONFIG.generalBroadcast.active) {
+            document.getElementById('broadcast-title').value = CONFIG.generalBroadcast.title;
+            document.getElementById('broadcast-body').value = CONFIG.generalBroadcast.body;
+        } else {
+            document.getElementById('broadcast-title').value = "";
+            document.getElementById('broadcast-body').value = "";
+        }
+
+        window.populateNotifSubjects(); 
+        
         renderAdminDataView(); 
         document.getElementById('admin-modal').classList.add('active');
     }
 
     window.closeAdminPanel = function() { 
         document.getElementById('admin-modal').classList.remove('active'); 
-        startSync();
-        fetchConfig();
+        startSync(); fetchConfig();
     }
-
-    adminIconUpload.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if(file) {
-            compressImage(file, (base64String) => {
-                CONFIG.botImage = base64String;
-                applyConfig(CONFIG);
-                adminIconRemove.style.display = 'inline-block';
-            });
-        }
-    });
-
-    window.removeBotIcon = function() {
-        CONFIG.botImage = "";
-        applyConfig(CONFIG);
-        adminIconUpload.value = "";
-        adminIconRemove.style.display = 'none';
-    };
-
-    adminBgUpload.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if(file) {
-            compressImage(file, (base64String) => {
-                CONFIG.chatBgImage = base64String;
-                applyConfig(CONFIG);
-                adminBgRemove.style.display = 'inline-block';
-            });
-        }
-    });
-
-    window.removeChatBg = function() {
-        CONFIG.chatBgImage = "";
-        applyConfig(CONFIG);
-        adminBgUpload.value = "";
-        adminBgRemove.style.display = 'none';
-    };
 
     window.switchTab = function(tabName) {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -909,6 +1196,17 @@
         if(tabName === 'settings') {
             document.querySelector('button[onclick="window.switchTab(\'settings\')"]').classList.add('active');
             document.getElementById('tab-settings').classList.add('active');
+        } else if (tabName === 'notifications') {
+            document.querySelector('button[onclick="window.switchTab(\'notifications\')"]').classList.add('active');
+            document.getElementById('tab-notifications').classList.add('active');
+            window.populateNotifSubjects();
+        } else if (tabName === 'broadcast') {
+            // Check Owner Access strictly for Tab
+            const user = auth.currentUser;
+            const isOwner = user && user.email === OWNER_EMAIL;
+            // If not owner, check if we just entered via password (simplified: allow entry, but check inside save)
+            document.querySelector('button[onclick="window.switchTab(\'broadcast\')"]').classList.add('active');
+            document.getElementById('tab-broadcast').classList.add('active');
         } else {
             document.querySelector('button[onclick="window.switchTab(\'data\')"]').classList.add('active');
             document.getElementById('tab-data').classList.add('active');
@@ -916,29 +1214,42 @@
         }
     }
 
+    adminIconUpload.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if(file) { compressImage(file, (base64String) => { CONFIG.botImage = base64String; applyConfig(CONFIG); adminIconRemove.style.display = 'inline-block'; }); }
+    });
+    window.removeBotIcon = function() { CONFIG.botImage = ""; applyConfig(CONFIG); adminIconUpload.value = ""; adminIconRemove.style.display = 'none'; };
+
+    adminBgUpload.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if(file) { compressImage(file, (base64String) => { CONFIG.chatBgImage = base64String; applyConfig(CONFIG); adminBgRemove.style.display = 'inline-block'; }); }
+    });
+    window.removeChatBg = function() { CONFIG.chatBgImage = ""; applyConfig(CONFIG); adminBgUpload.value = ""; adminBgRemove.style.display = 'none'; };
+
     function renderAdminList() {
         adminListContainer.innerHTML = '';
-        if (!CONFIG.admins || CONFIG.admins.length === 0) { adminListContainer.innerHTML = '<div style="color:#777; font-size:13px;">No admins added yet.</div>'; return; }
-        CONFIG.admins.forEach((admin, index) => {
+        if (!CONFIG.admins || CONFIG.admins.length === 0) { adminListContainer.innerHTML = '<div style="color:#777; font-size:13px; text-align:center;">لا يوجد مشرفين مضافين</div>'; return; }
+        CONFIG.admins.forEach((adminEmail, index) => {
             const div = document.createElement('div'); div.className = 'admin-item';
-            const nameSpan = document.createElement('span'); nameSpan.className = 'admin-name'; nameSpan.innerText = admin;
-            if (admin !== 'owner') {
-                const removeBtn = document.createElement('button'); removeBtn.className = 'btn-remove'; removeBtn.innerText = 'حذف'; removeBtn.onclick = () => removeAdmin(index);
-                div.appendChild(nameSpan); div.appendChild(removeBtn);
-            } else { div.appendChild(nameSpan); div.innerHTML += '<span style="color:#4dabf7; font-size:12px;"> (Owner)</span>'; }
-            adminListContainer.appendChild(div);
+            const nameSpan = document.createElement('span'); nameSpan.className = 'admin-name'; nameSpan.innerText = adminEmail;
+            const removeBtn = document.createElement('button'); removeBtn.className = 'btn-remove'; removeBtn.innerText = 'حذف'; removeBtn.onclick = () => removeAdmin(index);
+            div.appendChild(nameSpan); div.appendChild(removeBtn); adminListContainer.appendChild(div);
         });
     }
-
     window.addAdmin = function() {
-        const name = adminAddInput.value.trim();
-        if (name) { if (!CONFIG.admins) CONFIG.admins = []; if (!CONFIG.admins.includes(name)) { CONFIG.admins.push(name); adminAddInput.value = ''; renderAdminList(); } else alert("Admin already exists!"); }
+        const email = adminAddInput.value.trim();
+        if (email && (!CONFIG.admins.includes(email))) { 
+            if (!email.includes('@')) return alert("الرجاء إدخال إيميل صحيح");
+            CONFIG.admins.push(email); adminAddInput.value = ''; renderAdminList(); 
+        } else if (email) alert("هذا الإيميل مضاف بالفعل!");
     }
-    window.removeAdmin = function(index) { if (confirm("Are you sure?")) { CONFIG.admins.splice(index, 1); renderAdminList(); } }
+    window.removeAdmin = function(index) { 
+        if (!auth || !auth.currentUser || auth.currentUser.email !== OWNER_EMAIL) { alert("⛔ فقط المالك يمكنه حذف المشرفين."); return; }
+        if (confirm("هل أنت متأكد من حذف هذا المشرف؟")) { CONFIG.admins.splice(index, 1); renderAdminList(); } 
+    }
 
     window.saveAdminSettings = function() {
         const backsArr = respBacks.value.split('|').map(s => s.trim());
-        
         const newConfig = {
             botName: adminNameInput.value.trim() || defaultConfig.botName,
             botStatus: adminStatusInput.value.trim() || defaultConfig.botStatus,
@@ -950,13 +1261,17 @@
             backDoctor: backsArr[1] || CONFIG.backDoctor,
             backMain: backsArr[2] || CONFIG.backMain,
             admins: CONFIG.admins,
+            // Preserve other data
+            generalBroadcast: CONFIG.generalBroadcast,
+            latestNotificationUpdate: CONFIG.latestNotificationUpdate,
+            lastNotifSubject: CONFIG.lastNotifSubject,
+            lastNotifDoctor: CONFIG.lastNotifDoctor,
             database: database 
         };
         CONFIG = { ...CONFIG, ...newConfig }; applyConfig(CONFIG); saveConfigToBin(newConfig);
     }
 
-    // === DATA MANAGEMENT LOGIC ===
-
+    // === DATA MANAGEMENT LOGIC (With Edit/Delete for Notifications) ===
     function renderAdminDataView() {
         const pathContainer = document.getElementById('admin-data-path');
         const listContainer = document.getElementById('admin-list-items');
@@ -964,9 +1279,7 @@
         const addBoxLinkGroup = document.getElementById('file-link-input-group');
         const addBoxLinkInput = document.getElementById('new-item-link');
 
-        listContainer.innerHTML = '';
-        addBoxNameInput.value = '';
-        addBoxLinkInput.value = '';
+        listContainer.innerHTML = ''; addBoxNameInput.value = ''; addBoxLinkInput.value = '';
         addBoxNameInput.placeholder = "الاسم...";
 
         let pathHTML = `<span onclick="window.adminNavTo(-1)">الرئيسية</span>`;
@@ -977,168 +1290,177 @@
 
         let level = adminNavStack.length;
         let dataList = [];
+        
+        // Check if we are in a notifications folder
+        let isNotificationsFolder = false;
+        if (level === 3 && adminNavStack[2] === "🔔 Notifications") {
+            isNotificationsFolder = true;
+        }
 
         if (level === 0) {
             dataList = Object.keys(database);
             addBoxLinkGroup.style.display = 'none';
-        } 
-        else if (level === 1) {
+        } else if (level === 1) {
             const subName = adminNavStack[0];
-            if (database[subName] && database[subName].doctors) {
-                dataList = database[subName].doctors;
-            }
+            if (database[subName] && database[subName].doctors) dataList = database[subName].doctors;
             addBoxLinkGroup.style.display = 'none';
-        } 
-        else if (level === 2) {
-            const subName = adminNavStack[0];
-            const docName = adminNavStack[1];
-            if (database[subName] && database[subName][docName] && database[subName][docName].sections) {
-                dataList = database[subName][docName].sections;
-            }
+        } else if (level === 2) {
+            const subName = adminNavStack[0]; const docName = adminNavStack[1];
+            if (database[subName] && database[subName][docName] && database[subName][docName].sections) dataList = database[subName][docName].sections;
             addBoxLinkGroup.style.display = 'none';
-        } 
-        else if (level === 3) {
-            const subName = adminNavStack[0];
-            const docName = adminNavStack[1];
-            const secName = adminNavStack[2];
-            if (database[subName] && database[subName][docName] && database[subName][docName][secName]) {
-                dataList = database[subName][docName][secName];
+        } else if (level === 3) {
+            const subName = adminNavStack[0]; const docName = adminNavStack[1]; const secName = adminNavStack[2];
+            if (database[subName] && database[subName][docName] && database[subName][docName][secName]) dataList = database[subName][docName][secName];
+            
+            // Notifications are special (Text only), others are files (Name + Link)
+            if (!isNotificationsFolder) {
+                addBoxLinkGroup.style.display = 'block'; 
+                addBoxNameInput.placeholder = "اسم الملف...";
+            } else {
+                addBoxLinkGroup.style.display = 'none';
+                addBoxNameInput.placeholder = "نص الإشعار...";
             }
-            addBoxLinkGroup.style.display = 'block';
-            addBoxNameInput.placeholder = "اسم الملف...";
         }
 
-        if (dataList.length === 0) {
-            listContainer.innerHTML = '<div style="text-align:center; color:#666; padding:20px;">لا توجد عناصر</div>';
-        } else {
+        if (dataList.length === 0) { listContainer.innerHTML = '<div style="text-align:center; color:#666; padding:20px;">لا توجد عناصر</div>'; }
+        else {
             dataList.forEach((item, index) => {
                 const itemName = (typeof item === 'object') ? item.name : item;
+                const div = document.createElement('div'); div.className = 'data-item';
+                const nameSpan = document.createElement('div'); nameSpan.className = 'data-name'; nameSpan.innerText = itemName;
                 
-                const div = document.createElement('div');
-                div.className = 'data-item';
+                // Drill down logic
+                if (level < 3) nameSpan.onclick = () => { adminNavStack.push(itemName); renderAdminDataView(); };
+
+                const actionsDiv = document.createElement('div'); actionsDiv.className = 'data-actions';
                 
-                const nameSpan = document.createElement('div');
-                nameSpan.className = 'data-name';
-                nameSpan.innerText = itemName;
-                if (level < 3) {
-                    nameSpan.onclick = () => {
-                        adminNavStack.push(itemName);
-                        renderAdminDataView();
-                    };
+                // DELETE BUTTON
+                const delBtn = document.createElement('button'); delBtn.className = 'btn-sm btn-del'; delBtn.innerText = '🗑️'; 
+                delBtn.onclick = () => deleteAdminDataItem(index);
+                actionsDiv.appendChild(delBtn);
+
+                // EDIT BUTTON (Only for Notifications)
+                if (isNotificationsFolder && (typeof item === 'object') && item.id) {
+                    const editBtn = document.createElement('button'); editBtn.className = 'btn-sm btn-edit'; editBtn.innerText = '✏️';
+                    editBtn.onclick = () => editNotification(index);
+                    actionsDiv.appendChild(editBtn);
                 }
 
-                const actionsDiv = document.createElement('div');
-                actionsDiv.className = 'data-actions';
-                
-                const delBtn = document.createElement('button');
-                delBtn.className = 'btn-sm btn-del';
-                delBtn.innerText = '🗑️';
-                delBtn.onclick = () => deleteAdminDataItem(index);
-
-                actionsDiv.appendChild(delBtn);
-                div.appendChild(nameSpan);
-                div.appendChild(actionsDiv);
-                listContainer.appendChild(div);
+                div.appendChild(nameSpan); div.appendChild(actionsDiv); listContainer.appendChild(div);
             });
         }
     }
 
     window.adminNavTo = function(index) {
-        if (index === -1) adminNavStack = [];
-        else {
-            adminNavStack = adminNavStack.slice(0, index + 1);
-        }
+        if (index === -1) adminNavStack = []; else adminNavStack = adminNavStack.slice(0, index + 1);
         renderAdminDataView();
     }
 
-    window.addAdminDataItem = function() {
-        const nameInput = document.getElementById('new-item-name');
-        const linkInput = document.getElementById('new-item-link');
-        const name = nameInput.value.trim();
-        let level = adminNavStack.length;
+    // --- Editing Notification Logic ---
+    window.editNotification = function(index) {
+        const sub = adminNavStack[0]; const doc = adminNavStack[1]; const sec = adminNavStack[2];
+        const list = database[sub][doc][sec];
+        const item = list[index];
 
+        const newText = prompt("تعديل نص الإشعار:", item.name);
+        if (newText !== null && newText.trim() !== "") {
+            item.name = newText.trim();
+            item.date = new Date().toLocaleString('en-US', { weekday: 'short', hour: '2-digit', minute:'2-digit' }) + " (معدل)";
+            renderAdminDataView();
+            // Note: Saving happens when main Save button is clicked or we could save here. 
+            // Better to force save to update the DB immediately for users.
+            alert("⚠️ تأكد من الضغط على 'حفظ الإعدادات' في تبويب الإعدادات العامة لتطبيق التغييرات على السيرفر.");
+        }
+    }
+
+    window.addAdminDataItem = function() {
+        const nameInput = document.getElementById('new-item-name'); const linkInput = document.getElementById('new-item-link');
+        const name = nameInput.value.trim(); let level = adminNavStack.length;
         if (!name) return alert("الرجاء كتابة الاسم");
 
-        if (level === 0) {
-            if (database[name]) return alert("المادة موجودة بالفعل!");
-            database[name] = { doctors: [] };
+        // Check Admin Access for sensitive areas? 
+        // For simplicity, anyone who can open Admin Panel (Pass/Owner) can edit data.
+        
+        if (level === 0) { 
+            if (database[name]) return alert("المادة موجودة بالفعل!"); 
+            database[name] = { doctors: [] }; 
         } 
         else if (level === 1) {
-            const sub = adminNavStack[0];
+            const sub = adminNavStack[0]; 
             if (!database[sub]) database[sub] = { doctors: [] };
             if (database[sub].doctors.includes(name)) return alert("الدكتور موجود بالفعل!");
-            
-            database[sub].doctors.push(name);
-            database[sub][name] = { sections: [] }; 
+            database[sub].doctors.push(name); 
+            database[sub][name] = { sections: ["📚 Lectures", "🔔 Notifications"] }; // Default add notifs
+            database[sub][name]["📚 Lectures"] = [];
+            database[sub][name]["🔔 Notifications"] = [];
         } 
         else if (level === 2) {
-            const sub = adminNavStack[0];
-            const doc = adminNavStack[1];
+            const sub = adminNavStack[0]; const doc = adminNavStack[1];
             if (!database[sub][doc]) database[sub][doc] = { sections: [] };
             if (database[sub][doc].sections.includes(name)) return alert("القسم موجود بالفعل!");
-
-            database[sub][doc].sections.push(name);
+            database[sub][doc].sections.push(name); 
             database[sub][doc][name] = []; 
         } 
         else if (level === 3) {
-            const sub = adminNavStack[0];
-            const doc = adminNavStack[1];
-            const sec = adminNavStack[2];
-            const link = linkInput.value.trim() || "#";
-
-            if (!database[sub][doc][sec]) database[sub][doc][sec] = [];
-            database[sub][doc][sec].push({ name: name, link: link });
+            const sub = adminNavStack[0]; const doc = adminNavStack[1]; const sec = adminNavStack[2];
+            
+            if (sec === "🔔 Notifications") {
+                // Adding a Notification
+                database[sub][doc][sec].unshift({
+                    id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+                    name: name,
+                    date: new Date().toLocaleString(),
+                    type: "notif"
+                });
+            } else {
+                // Adding a File
+                const link = linkInput.value.trim() || "#";
+                if (!database[sub][doc][sec]) database[sub][doc][sec] = [];
+                database[sub][doc][sec].push({ name: name, link: link });
+            }
         }
-
         renderAdminDataView();
     }
 
     function deleteAdminDataItem(index) {
         let level = adminNavStack.length;
-
         if(!confirm("هل أنت متأكد من الحذف؟")) return;
-
-        if (level === 0) {
-            const subKeys = Object.keys(database);
-            const subToDelete = subKeys[index];
-            delete database[subToDelete];
+        
+        if (level === 0) { 
+            const subKeys = Object.keys(database); 
+            delete database[subKeys[index]]; 
         } 
-        else if (level === 1) {
-            const sub = adminNavStack[0];
+        else if (level === 1) { 
+            const sub = adminNavStack[0]; 
             const docName = database[sub].doctors[index];
-            database[sub].doctors.splice(index, 1);
-            delete database[sub][docName];
-        } 
-        else if (level === 2) {
-            const sub = adminNavStack[0];
-            const doc = adminNavStack[1];
+            database[sub].doctors.splice(index, 1); 
+            delete database[sub][docName]; 
+        }
+        else if (level === 2) { 
+            const sub = adminNavStack[0]; const doc = adminNavStack[1]; 
             const secName = database[sub][doc].sections[index];
-            database[sub][doc].sections.splice(index, 1);
-            delete database[sub][doc][secName];
-        } 
-        else if (level === 3) {
-            const sub = adminNavStack[0];
-            const doc = adminNavStack[1];
-            const sec = adminNavStack[2];
-            database[sub][doc][sec].splice(index, 1);
+            database[sub][doc].sections.splice(index, 1); 
+            delete database[sub][doc][secName]; 
+        }
+        else if (level === 3) { 
+            const sub = adminNavStack[0]; const doc = adminNavStack[1]; const sec = adminNavStack[2]; 
+            database[sub][doc][sec].splice(index, 1); 
         }
         renderAdminDataView();
     }
 
     // ============================================================
-    // === 8. KEYBOARD RENDERER ===
+    // === 9. KEYBOARD RENDERER ===
     // ============================================================
     function resetStateVariables() { currentSubject = null; currentDoctor = null; currentCategory = null; renderKeyboard(); }
 
     function renderKeyboard() {
         keyboardArea.innerHTML = '';
         const subjects = Object.keys(database);
-        
         if (!currentSubject) { 
             subjects.forEach(sub => { keyboardArea.appendChild(createButton(sub, () => handleSubjectClick(sub))); }); 
             return; 
         }
-        
         keyboardArea.appendChild(createButton("🔙 Back", goBack, true));
         if (currentSubject && !currentDoctor) {
             const subjectDoctors = database[currentSubject].doctors;
@@ -1157,6 +1479,7 @@
     function handleSubjectClick(subjectName) { addMessage(subjectName, 'user'); currentSubject = subjectName; currentDoctor = null; currentCategory = null; const msg = replacePlaceholders(CONFIG.subjectPrompt, subjectName); botReply(msg, true); renderKeyboard(); }
     function handleDoctorClick(doctorName) { addMessage(doctorName, 'user'); currentDoctor = doctorName; currentCategory = null; const msg = replacePlaceholders(CONFIG.doctorPrompt, doctorName); botReply(msg, true); renderKeyboard(); }
     function handleCategoryClick(categoryName) { addMessage(categoryName, 'user'); currentCategory = categoryName; const msg = replacePlaceholders(CONFIG.categoryPrompt, categoryName); botReply(msg, true); renderKeyboard(); }
+
     function handleFileClick(fileObj) {
         addMessage(`Open: ${fileObj.name}`, 'user');
         setTimeout(() => {
@@ -1164,28 +1487,46 @@
                 const htmlContent = `<div style="margin-bottom:5px;">📎 <b>${fileObj.name}</b></div><div class="file-link-dummy"><span>⚠️</span><span>Link not configured</span></div>`; 
                 addMessage(htmlContent, 'bot', true); 
             } else { 
-                const htmlContent = `<div style="margin-bottom:5px;">📎 <b>${fileObj.name}</b></div><a href="${fileObj.link}" target="_blank" class="file-link-btn"><span>📂</span><span>Download / Open File</span></a>`; 
-                addMessage(htmlContent, 'bot', true); 
+                // Check if it's a notification content (special handling)
+                if (fileObj.type === "notif" || (fileObj.link && fileObj.link.startsWith("content:"))) {
+                    const actualMsg = fileObj.type === "notif" ? fileObj.name : fileObj.link.replace("content:", "");
+                    const htmlContent = `
+                        <div class="notif-display">
+                            <div class="notif-header">📢 رسالة من دكتور • ${currentDoctor} (${currentSubject})</div>
+                            <div>${actualMsg}</div>
+                        </div>
+                    `;
+                    addMessage(htmlContent, 'bot', true);
+                } else {
+                    // Standard file
+                    const htmlContent = `<div style="margin-bottom:5px;">📎 <b>${fileObj.name}</b></div><a href="${fileObj.link}" target="_blank" class="file-link-btn"><span>📂</span><span>Download / Open File</span></a>`; 
+                    addMessage(htmlContent, 'bot', true); 
+                }
             }
         }, 800);
     }
+    
     function goBack() {
         addMessage("🔙 Back", 'user');
-        if (currentCategory) { currentCategory = null; const msg = replacePlaceholders(CONFIG.backDoctor, currentDoctor); botReply(msg, true); } else if (currentDoctor) { currentDoctor = null; const msg = replacePlaceholders(CONFIG.backSubject, currentSubject); botReply(msg, true); } else if (currentSubject) { currentSubject = null; botReply(CONFIG.backMain, true); }
+        if (currentCategory) { currentCategory = null; const msg = replacePlaceholders(CONFIG.backDoctor, currentDoctor); botReply(msg, true); } 
+        else if (currentDoctor) { currentDoctor = null; const msg = replacePlaceholders(CONFIG.backSubject, currentSubject); botReply(msg, true); } 
+        else if (currentSubject) { currentSubject = null; botReply(CONFIG.backMain, true); }
         renderKeyboard();
     }
 
     // --- Initialization ---
     window.onload = () => {
         if ('caches' in window) { caches.keys().then(function(names) { for (let name of names) caches.delete(name); }); }
-        if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(function(registrations) { for(let registration of registrations) registration.unregister(); }); }
+        if ('serviceWorker' in navigator) { navigator.serviceWorker.register(swUrl).catch(err => console.error("SW Fail:", err)); }
         
-        // Initialize Auth
-        initFirebaseAuth();
-        
-        fetchConfig();
-        startSync();
-        setTimeout(() => { const welcomeMsg = replacePlaceholders(CONFIG.welcomeMessage, null); botReply(welcomeMsg, true); renderKeyboard(); }, 500);
+        initFirebaseAuth(); fetchConfig(); startSync();
+        setTimeout(() => { 
+            const welcomeMsg = replacePlaceholders(CONFIG.welcomeMessage, null); 
+            // We add welcome slightly delayed to allow Broadcast to appear first if logic requires
+            // But currently Broadcast is added via insertAdjacentHTML, so welcome goes after in flow
+            botReply(welcomeMsg, true); 
+            renderKeyboard(); 
+        }, 500);
     };
 
 </script>
