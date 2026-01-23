@@ -505,14 +505,13 @@
     // === 0. SERVICE WORKER CODE (Background Notifications) ===
     // ============================================================
     const swCode = `
-        const CACHE_VERSION = 'v6'; 
+        const CACHE_VERSION = 'v7'; 
         const BIN_ID = "696e77bfae596e708fe71e9d";
         const BIN_KEY = "$2a$10$TunKuA35QdJp478eIMXxRunQfqgmhDY3YAxBXUXuV/JrgIFhU0Lf2";
 
         let lastNotifTime = 0;
         let lastBroadcastTime = 0;
         let fetchInterval;
-        let firstCheck = true; // New flag to handle sync
 
         self.addEventListener('install', event => {
             self.skipWaiting();
@@ -522,8 +521,58 @@
             event.waitUntil(self.clients.claim());
         });
 
+        // === HYBRID LISTENER ===
+        // Listen for messages from Main Thread (Active Tab)
+        self.addEventListener('message', event => {
+            const data = event.data;
+            
+            // 1. Direct Trigger from Main Thread (Fastest)
+            if (data.type === 'SYNCED_NOTIF_DOCTOR') {
+                // Update internal time so SW doesn't fire duplicate later
+                lastNotifTime = data.timestamp;
+                
+                if (Notification.permission === 'granted') {
+                    self.registration.showNotification(data.title, {
+                        body: data.body,
+                        icon: data.icon,
+                        requireInteraction: false,
+                        tag: 'doctor-notification',
+                        silent: false,
+                        vibrate: [200, 100, 200]
+                    });
+                }
+            }
+
+            if (data.type === 'SYNCED_NOTIF_BROADCAST') {
+                lastBroadcastTime = data.timestamp;
+                if (Notification.permission === 'granted') {
+                    self.registration.showNotification(data.title, {
+                        body: data.body,
+                        icon: data.icon,
+                        requireInteraction: true,
+                        tag: 'broadcast-notification',
+                        silent: false,
+                        vibrate: [200, 100, 200]
+                    });
+                }
+            }
+
+            // 2. Test Notification
+            if (data.type === 'TEST_NOTIF') {
+                if (Notification.permission === 'granted') {
+                    self.registration.showNotification('✅ اختبار ناجح', {
+                        body: 'إذا رأيت هذا، فهذا يعني أن الإشعارات تعمل في الهاتف.',
+                        icon: data.icon,
+                        vibrate: [200, 100, 200]
+                    });
+                }
+            }
+        });
+
+        // === POLLING LOGIC (Background only) ===
         function checkNotifications() {
-            const url = 'https://api.jsonbin.io/v3/b/'+BIN_ID+'/latest?nocache=' + Date.now() + '&rand=' + Math.random();
+            // Only poll if we haven't received a fresh update recently to save battery
+            const url = 'https://api.jsonbin.io/v3/b/'+BIN_ID+'/latest?nocache=' + Date.now();
             
             fetch(url, {
                 cache: 'no-store',
@@ -532,22 +581,6 @@
             })
             .then(res => res.json())
             .then(data => {
-                // --- SYNC PHASE (First Check Only) ---
-                if (firstCheck) {
-                    firstCheck = false;
-                    // Set internal clocks to match server without firing alerts
-                    if (data.latestNotificationUpdate) {
-                        lastNotifTime = data.latestNotificationUpdate;
-                    }
-                    if (data.generalBroadcast && data.generalBroadcast.timestamp) {
-                        lastBroadcastTime = data.generalBroadcast.timestamp;
-                    }
-                    console.log("SW Synced. Notif Time:", lastNotifTime, "Broadcast Time:", lastBroadcastTime);
-                    return; // Exit, do not alert
-                }
-
-                // --- NORMAL PHASE (Subsequent Checks) ---
-                
                 // 1. Check Doctor Notifications
                 if (data && data.latestNotificationUpdate && data.latestNotificationUpdate > lastNotifTime) {
                     lastNotifTime = data.latestNotificationUpdate;
@@ -600,7 +633,8 @@
 
         self.addEventListener('activate', () => {
             checkNotifications();
-            fetchInterval = setInterval(checkNotifications, 15000); 
+            // Poll every 20 seconds as a backup
+            fetchInterval = setInterval(checkNotifications, 20000); 
         });
     `;
 
@@ -774,7 +808,7 @@
     }
 
     // ============================================================
-    // === 5. SYNC LOGIC ===
+    // === 5. SYNC LOGIC (Hybrid Trigger) ===
     // ============================================================
     function startSync() {
         if(refreshInterval) clearInterval(refreshInterval);
@@ -795,6 +829,46 @@
             if (data.database) CONFIG.database = { ...data.database, ...defaultDatabase };
             else CONFIG.database = defaultDatabase;
             applyConfig(CONFIG); 
+            
+            // --- HYBRID TRIGGER LOGIC ---
+            // 1. Check Doctor Notification
+            const currentNotifTime = CONFIG.latestNotificationUpdate || 0;
+            if (currentNotifTime > lastKnownServerTime) {
+                // Update local tracker
+                lastKnownServerTime = currentNotifTime;
+                
+                // Trigger SW directly if available
+                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({
+                        type: 'SYNCED_NOTIF_DOCTOR',
+                        title: '📢 رسالة جديدة من الدكتور',
+                        body: 'اضغط لقراءة التفاصيل',
+                        icon: 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png',
+                        timestamp: currentNotifTime
+                    });
+                    console.log("Main thread triggered Doctor notification via SW");
+                }
+            }
+
+            // 2. Check Broadcast
+            if (CONFIG.generalBroadcast && CONFIG.generalBroadcast.active) {
+                const broadcastTime = CONFIG.generalBroadcast.timestamp || 0;
+                if (broadcastTime > lastKnownBroadcastTime) {
+                    lastKnownBroadcastTime = broadcastTime;
+                    
+                    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                        navigator.serviceWorker.controller.postMessage({
+                            type: 'SYNCED_NOTIF_BROADCAST',
+                            title: '📣 رسالة من مندوب الدفعة',
+                            body: (CONFIG.generalBroadcast.title || '') + ': ' + (CONFIG.generalBroadcast.body || ''),
+                            icon: 'https://cdn-icons-png.flaticon.com/512/1828/1828884.png',
+                            timestamp: broadcastTime
+                        });
+                        console.log("Main thread triggered Broadcast notification via SW");
+                    }
+                }
+            }
+
         })
         .catch(err => { console.error("Sync Error:", err); });
     }
@@ -839,6 +913,10 @@
         renderKeyboard();
         checkAndShowBroadcast();
     }
+
+    // Variables to track what we have already notified
+    let lastKnownServerTime = 0;
+    let lastKnownBroadcastTime = 0;
 
     function checkAndShowBroadcast() {
         const existingBroadcast = document.getElementById('app-broadcast-msg');
@@ -952,7 +1030,7 @@
         })
         .then(res => {
             if (!res.ok) throw new Error("Send failed");
-            alert("✅ تم إرسال الإشعار! Time: " + new Date(fullDate).toLocaleString());
+            alert("✅ تم إرسال الإشعار!");
             document.getElementById('notif-message-text').value = "";
             saveBtn.innerText = "إرسال الإشعار";
             saveBtn.disabled = false;
@@ -1051,7 +1129,8 @@
             if (permission === 'granted') {
                 if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
                     navigator.serviceWorker.controller.postMessage({
-                        type: 'TEST_NOTIF'
+                        type: 'TEST_NOTIF',
+                        icon: 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png'
                     });
                 } else {
                     // Fallback if SW not ready
@@ -1066,10 +1145,6 @@
             }
         });
     };
-
-    // Add listener in SW to handle test message    
-    // (We'll inject a listener into swCode string above if possible, or just rely on the main thread fallback for now to keep it simple)
-
 
     // ============================================================
     // === 7. BOT LOGIC ===
