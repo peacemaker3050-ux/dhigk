@@ -12,7 +12,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="UniBot">
     <meta name="theme-color" content="#0f172a">
-    <link rel="manifest" href='data:application/manifest+json;base64,eyJuYW1lIjoiVW5pQm90Iiwic2hvcnRfbmFtZSI6IlVuaUJvdCIsInN0YXJ0X3VybCI6Ii4iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3IiOiIjMGYxNzJhIiwidGhlbWVfY29sb3IiOiIjMGYxNzJhIiwib3JpZW50YXRpb24iOiJhbnkiLCJpY29ucyI6W3sic3JjIjoiaHR0cHM6Ly9jZG4taWNvbnMtcG5nLmZsYXRpY29uLmNvbS81MTIvMjk5MS8yOTkxMTQ4LnBuZyIsInNpemVzIjoiMTkyeDE5MiIsInR5cGUiOiJpbWFnZS9wbmcifSx7InNyYyI6Imh0dHBzOi8vY2RuLWljb25zLXBuZy5mbGF0aWNvbi5jb20vNTEyLzI5OTEvMjk5MTE0OC5wbmciLCJzaXplcyIjoiNTEyng1MTIiLCJ0eXBlIjoiaW1hZ2UvcG5nIn1dfQ=='>
+    <link rel="manifest" href='data:application/manifest+json;base64,eyJuYW1lIjoiVW5pQm90Iiwic2hvcnRfbmFtZSI6IlVuaUJvdCIsInN0YXJ0X3VybCI6Ii4iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3IiOiIjMGYxNzJhIiwidGhlbWVfY29sb3IiOiIjMGYxNzJhIiwib3JpZW50YXRpb24iOiJhbnkiLCJpY29ucyI6W3sic3JjIjoiaHR0cHM6Ly9jZG4taWNvbnMtcG5nLmZsYXRpY29uLmNvbS81MTIvMjk5MS8yOTkxMTQ4LnBuZyIsInNpemVzIjoiMTkyeDE5MiIsInR5cGUiOiJpbWFnZS9wbmcifSx7InNyYyI6Imh0dHBzOi8vY2RuLWljb25zLXBuZy5mbGF0aWNvbi5jb20vNTEyLzI5OTEvMjk5MTE0OC5wbmciLCJzaXplcyI6IjUxMng1MTIiLCJ0eXBlIjoiaW1hZ2UvcG5nIn1dfQ=='>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,7 +29,7 @@
             /* CRITICAL: Highly Transparent Container Background */
             --container-bg: transparent !important;
             
-            /* Header Background */
+            /* Header Background (Still needs to be visible) */
             --bg-glass: rgba(15, 23, 42, 0.4) !important;
             
             --accent-primary: #3b82f6;
@@ -200,6 +200,7 @@
 
         /* === KEYBOARD AREA === */
         #keyboard-area {
+            /* UPDATED: Transparent background to reveal animated background */
             background: var(--container-bg) !important;
             backdrop-filter: none; 
             -webkit-backdrop-filter: none;
@@ -221,6 +222,7 @@
             display: flex; align-items: center; justify-content: center;
             position: relative; overflow: hidden;
             direction: rtl; text-align: center;
+            /* Add subtle inner shadow for depth */
             box-shadow: inset 0 1px 2px rgba(255,255,255,0.05);
         }
         .keyboard-btn:hover { 
@@ -267,6 +269,7 @@
         /* === ADMIN MODAL (UPDATED DESIGN) === */
         .admin-modal {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            /* UPDATED: Transparent background to reveal animated background */
             background: var(--container-bg) !important;
             backdrop-filter: none;
             -webkit-backdrop-filter: none;
@@ -747,7 +750,7 @@
     const JSONBIN_ACCESS_KEY = "$2a$10$TunKuA35QdJp478eIMXxRunQfqgmhDY3YAxBXUXuV/JrgIFhU0Lf2";
     const defaultDatabase = {
         "Physics": { "doctors": ["Dr. Ahmed", "Dr. Mahmoud"], "Dr. Ahmed": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [{ name: "Chapter 1.pdf", link: "#" }], "🔔 Notifications": [] }, "Dr. Mahmoud": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] } },
-        "Chemistry": { "doctors": ["Dr. Saeed", "Dr. Mona"], "Dr. Saeed": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] }, "Dr. Mona": { "sections": ["📚 Lectures", "🎓 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] } },
+        "Chemistry": { "doctors": ["Dr. Saeed", "Dr. Mona"], "Dr. Saeed": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] }, "Dr. Mona": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] } },
         "Mathematics": { "doctors": ["Dr. Kamel", "Dr. Samy"], "Dr. Kamel": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] }, "Dr. Samy": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] } }
     };
     const defaultConfig = {
@@ -794,28 +797,18 @@
     }
 
     // ============================================================
-    // === 4. IMAGE COMPRESSOR (UPDATED FOR SIZE LIMITS) ===
+    // === 4. IMAGE COMPRESSOR ===
     // ============================================================
     function compressImage(file, callback) {
         const reader = new FileReader(); reader.readAsDataURL(file);
         reader.onload = (event) => {
             const img = new Image(); img.src = event.target.result;
             img.onload = () => {
-                let width = img.width; let height = img.height; 
-                // REDUCED MAX SIZE TO 600px TO PREVENT PAYLOAD TOO LARGE
-                const MAX_SIZE = 600; 
-                if (width > height) { 
-                    if (width > MAX_SIZE) { 
-                        height *= MAX_SIZE / width; width = MAX_SIZE; 
-                    } 
-                } else { 
-                    if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } 
-                }
+                let width = img.width; let height = img.height; const MAX_SIZE = 800; 
+                if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
                 const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
                 const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
-                // REDUCED QUALITY TO 0.6
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.6); 
-                callback(dataUrl);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.7); callback(dataUrl);
             };
             reader.onerror = (err) => { showToast("Error processing image", "error"); };
         };
