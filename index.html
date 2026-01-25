@@ -12,7 +12,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="UniBot">
     <meta name="theme-color" content="#0f172a">
-    <link rel="manifest" href='data:application/manifest+json;base64,eyJuYW1lIjoiVW5pdmVyc2l0eSBCb3QiLCJzaG9ydF9uYW1lIjoiVW5pQm90Iiwic3RhcnRfdXJsIjoiLiIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiMwZjE3MmEiLCJ0aGVtZV9jb2xvciI6IiMwZjE3MmEiLCJvcmllbnRhdGlvbiI6ImFueSIsImljb25zIjpbeyJzcmMiOiJodHRwczovL2Nkbi1pY29ucy1wbmcuZmxhdGljb24uY29tLzUxMi8yOTkxLzI5OTExNDgucG5nIiwic2l6ZXMiOiIxOTJ4MTkyIiwidHlwZSI6ImltYWdlL3BuZyJ9LHsic3JjIjoiaHR0cHM6Ly9jZG4taWNvbnMtcG5nLmZsYXRpY29uLmNvbS81MTIvMjk5MS8yOTkxMTQ4LnBuZyIsInNpemVzIjoiNTEyeDUxMiIsInR5cGUiOiJpbWFnZS9wbmcifV19'>
+    
+    <!-- UPDATED: External Manifest Link -->
+    <link rel="manifest" href="./manifest.json">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -393,7 +395,6 @@
             <div class="bot-avatar" id="header-avatar">🎓</div>
             <div class="bot-name">
                 <h2 id="header-name">University Bot</h2>
-                <!-- Added Sync Indicator -->
                 <span class="bot-status" id="header-status"><div class="sync-dot"></div> Online</span>
             </div>
         </div>
@@ -401,7 +402,6 @@
         <div class="header-actions" id="menu-btn" title="Menu">⋮</div>
 
         <div class="menu-dropdown" id="menu-dropdown">
-            <!-- NEW INSTALL BUTTON -->
             <div class="menu-item install-btn" id="pwa-install-btn" style="display:none;" onclick="window.installApp()">
                 <span>📲</span> <span>Install App</span>
             </div>
@@ -468,7 +468,7 @@
             <div class="install-text">
                 <h4>iPhone (Safari)</h4>
                 <p>Tap <b>Share</b> button (square with arrow) → Scroll down → Tap <b>"Add to Home Screen"</b>.</p>
-                <p style="color:#f87171; font-size:12px; margin-top:5px;">⚠️ <b>Note:</b> iOS is strict. Notifications might only appear when you open app or wake up the screen.</p>
+                <p style="color:#f87171; font-size:12px; margin-top:5px;">⚠️ <b>Note:</b> iOS is strict. Notifications might only appear when you open app or wake up screen.</p>
             </div>
         </div>
 
@@ -746,7 +746,7 @@
     const JSONBIN_BIN_ID = "696e77bfae596e708fe71e9d";
     const JSONBIN_ACCESS_KEY = "$2a$10$TunKuA35QdJp478eIMXxRunQfqgmhDY3YAxBXUXuV/JrgIFhU0Lf2";
     const defaultDatabase = {
-        "Physics": { "doctors": ["Dr. Ahmed", "Dr. Mahmoud"], "Dr. Ahmed": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [{ name: "Chapter1.pdf", link: "#" }], "🔔 Notifications": [] }, "Dr. Mahmoud": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] } },
+        "Physics": { "doctors": ["Dr. Ahmed", "Dr. Mahmoud"], "Dr. Ahmed": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [{ name: "Chapter 1.pdf", link: "#" }], "🔔 Notifications": [] }, "Dr. Mahmoud": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] } },
         "Chemistry": { "doctors": ["Dr. Saeed", "Dr. Mona"], "Dr. Saeed": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] }, "Dr. Mona": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] } },
         "Mathematics": { "doctors": ["Dr. Kamel", "Dr. Samy"], "Dr. Kamel": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] }, "Dr. Samy": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] } }
     };
@@ -1185,7 +1185,7 @@
         if ('serviceWorker' in navigator) { 
             navigator.serviceWorker.register('./sw.js')
             .then(reg => { 
-                console.log("SW Registered: ", reg);
+                console.log("SW Registered:", reg);
                 if (reg.waiting) reg.waiting.postMessage({type: 'SKIP_WAITING'}); 
                 reg.addEventListener('updatefound', () => { 
                     const newWorker = reg.installing; 
@@ -1198,7 +1198,11 @@
         }
 
         initFirebaseAuth(); fetchConfig(); startSync();
-        setTimeout(() => { const welcomeMsg = replacePlaceholders(CONFIG.welcomeMessage, null); botReply(welcomeMsg, true); renderKeyboard(); }, 500);
+        setTimeout(() => { 
+            const welcomeMsg = replacePlaceholders(CONFIG.welcomeMessage, null); 
+            botReply(welcomeMsg, true); 
+            renderKeyboard(); 
+        }, 500);
     };
 </script>
 </body>
