@@ -20,10 +20,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
 
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <!-- NEW: Firebase Messaging Library -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js"></script>
 
     <style>
         /* === RESET & VARIABLES === */
@@ -739,9 +738,8 @@
       appId: "1:371129360013:web:377ef70759204018a60cc4"
     };
     let auth;
-    let messaging; // NEW: Variable for messaging
-    let isAuthInitialized = false;
-    try { firebase.initializeApp(firebaseConfig); auth = firebase.auth(); messaging = firebase.messaging(); } catch (e) { console.error("Firebase Init Error", e); }
+    let isAuthInitialized = false; // Flag to prevent UI flickering
+    try { firebase.initializeApp(firebaseConfig); auth = firebase.auth(); } catch (e) { console.error("Firebase Init Error", e); }
     const OWNER_EMAIL = "peacemaker3050@gmail.com";
 
     // ============================================================
@@ -767,7 +765,7 @@
     let refreshInterval = null;
 
     // ============================================================
-    // === 3. AUTH LOGIC ===
+    // === 3. AUTH LOGIC (UPDATED FOR STABILITY) ===
     // ============================================================
     window.handleMenuAuthClick = function() {
         document.getElementById('menu-dropdown').classList.remove('active');
@@ -789,12 +787,14 @@
         if (auth) { auth.signOut().then(() => { console.log("User signed out."); window.location.reload(); }).catch((error) => console.error("Sign out error", error)); }
     };
     
+    // --- UPDATED FUNCTION FOR SESSION PERSISTENCE & NO FLICKER ---
     function initFirebaseAuth() { 
         if (!auth) return; 
+        // Set persistence to LOCAL
         auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
             .then(() => {
                 auth.onAuthStateChanged((user) => {
-                    isAuthInitialized = true; 
+                    isAuthInitialized = true; // Mark as ready to update UI
                     if (user) console.log("Auth Persistence Active:", user.email);
                     else console.log("User logged out or session cleared.");
                     window.updateAuthUI(); 
@@ -802,6 +802,7 @@
             })
             .catch((error) => {
                 console.error("Auth Persistence Error:", error);
+                // Fallback
                 auth.onAuthStateChanged((user) => { 
                     isAuthInitialized = true;
                     window.updateAuthUI(); 
@@ -810,7 +811,9 @@
     }
     
     window.updateAuthUI = function() {
+        // Prevent UI updates until Auth check is complete to stop "Sign In" flash
         if (!isAuthInitialized) return;
+
         const loginBtn = document.getElementById('google-login-btn'); const loginText = document.getElementById('auth-text'); const loginIcon = document.getElementById('auth-icon');
         const user = auth ? auth.currentUser : null;
         if (user) {
@@ -826,50 +829,7 @@
     }
 
     // ============================================================
-    // === 4. FCM MESSAGING LOGIC (NEW) ===
-    // ============================================================
-    function initializeFirebaseMessaging() {
-        if (!messaging) return;
-
-        // YOUR VAPID KEY HERE
-        const vapidKey = "BCmmvd3JEj26OLT_bEl986rldLpJiSPjAzjBsRaVN-OO5RCj_dcLXexMobA4K9Y9-3Zrv4Tc2s1H9uakLoIEf0Y"; 
-
-        messaging.requestPermission()
-            .then((permission) => {
-                if (permission === 'granted') {
-                    console.log('Notification permission granted.');
-                    return messaging.getToken({ vapidKey: vapidKey });
-                } else {
-                    console.log('Unable to get permission to notify.');
-                }
-            })
-            .then((currentToken) => {
-                if (currentToken) {
-                    console.log('Current Token:', currentToken);
-                    // NOTE: You must send this token to your server to save it for this user
-                    saveTokenToServer(currentToken); 
-                } else {
-                    console.log('No registration token available. Request permission to generate one.');
-                }
-            })
-            .catch((err) => {
-                console.log('An error occurred while retrieving token. ', err);
-            });
-
-        // Handle foreground messages
-        messaging.onMessage((payload) => {
-            console.log('Foreground message received: ', payload);
-            // You can show an in-app alert here if you want
-        });
-    }
-
-    function saveTokenToServer(token) {
-        console.log("IMPORTANT: Save this token to JSONBin for user:", token);
-        // In a real app, you would do: fetch('YOUR_SERVER', { method: 'POST', body: JSON.stringify({ token: token }) })
-    }
-
-    // ============================================================
-    // === 5. IMAGE COMPRESSOR ===
+    // === 4. IMAGE COMPRESSOR ===
     // ============================================================
     function compressImage(file, callback) {
         const reader = new FileReader(); reader.readAsDataURL(file);
@@ -887,7 +847,7 @@
     }
 
     // ============================================================
-    // === 6. SYNC LOGIC ===
+    // === 5. SYNC LOGIC ===
     // ============================================================
     function startSync() { if(refreshInterval) clearInterval(refreshInterval); refreshInterval = setInterval(fetchConfig, 15000); }
     function stopSync() { if(refreshInterval) { clearInterval(refreshInterval); refreshInterval = null; } }
@@ -954,7 +914,7 @@
     function replacePlaceholders(text, name) { let res = text || ""; if (name) res = res.replace(/{name}/g, name); res = res.replace(/{botName}/g, CONFIG.botName); return res; }
 
     // ============================================================
-    // === 7. VISUAL ALERT SYSTEM ===
+    // === 6. VISUAL ALERT SYSTEM ===
     // ============================================================
     function showVisualAlertWithBody(bodyText) {
         const overlay = document.getElementById('visual-alert-overlay'); if (overlay.classList.contains('active')) return;
@@ -964,7 +924,7 @@
     window.closeVisualAlert = function() { document.getElementById('visual-alert-overlay').classList.remove('active'); };
 
     // ============================================================
-    // === 8. NOTIFICATION SYSTEM ===
+    // === 7. NOTIFICATION SYSTEM ===
     // ============================================================
     function hasAdminAccess() { const user = auth.currentUser; if (!user) return false; const email = user.email; return email === OWNER_EMAIL || (CONFIG.admins && CONFIG.admins.includes(email)); }
     window.populateNotifSubjects = function() {
@@ -1040,7 +1000,7 @@
     };
 
     // ============================================================
-    // === 9. BOT LOGIC ===
+    // === 8. BOT LOGIC ===
     // ============================================================
     let currentSubject = null, currentDoctor = null, currentCategory = null;
     const chatArea = document.getElementById('chat-area'); const keyboardArea = document.getElementById('keyboard-area');
@@ -1074,17 +1034,21 @@
         Notification.requestPermission().then(permission => { if (permission === 'granted') { showToast("✅ Notifications Enabled", "success"); new Notification("Enabled", { body: "You will now receive updates." }); } else { showToast("❌ Permission Denied", "error"); } });
     };
     
+    // ============================================================
+    // === FIXED FORCE RELOAD FUNCTION ===
+    // ============================================================
     window.forceReload = function() {
         document.getElementById('menu-dropdown').classList.remove('active');
         showConfirmModal("Force Reload", "هل تريد تحديث التطبيق بالكامل؟", (confirm) => {
             if(confirm) {
+                // تعديل هام: لا نقوم بإلغاء تثبيت Service Worker لكي لا تتوقف الإشعارات
                 window.location.href = window.location.href.split('?')[0] + '?t=' + new Date().getTime();
             }
         });
     };
 
     // ============================================================
-    // === 10. ADMIN PANEL & TAB LOGIC ===
+    // === 9. ADMIN PANEL & TAB LOGIC ===
     // ============================================================
     let adminNavStack = [];
     let currentAdminTab = 0; 
@@ -1213,7 +1177,7 @@
     }
 
     // ============================================================
-    // === 11. KEYBOARD RENDERER ===
+    // === 10. KEYBOARD RENDERER ===
     // ============================================================
     function resetStateVariables() { currentSubject = null; currentDoctor = null; currentCategory = null; renderKeyboard(); }
     function renderKeyboard() {
@@ -1267,12 +1231,9 @@
             }).catch(err => console.error("SW Fail:", err)); 
         }
 
-        // 1. Initialize Auth first
+        // 1. Initialize Auth first with persistence setting
+        // We do NOT call updateAuthUI immediately here because we want to wait for onAuthStateChanged
         initFirebaseAuth(); 
-        
-        // 2. Initialize Firebase Messaging (With Your Key)
-        initializeFirebaseMessaging();
-        
         fetchConfig(); 
         startSync();
         
