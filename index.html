@@ -1206,6 +1206,9 @@
 
     // --- Initialization ---
     window.onload = () => {
+        // VISUAL FIX: Set loading state immediately to prevent "Sign In" flash
+        document.getElementById('auth-text').innerText = "جاري التحقق...";
+
         if ('caches' in window) { caches.keys().then(function(names) { for (let name of names) caches.delete(name); }); }
         
         if ('serviceWorker' in navigator) { 
