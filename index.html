@@ -418,7 +418,7 @@
             </div>
 
             <div class="menu-item google-auth" id="google-login-btn" onclick="window.handleMenuAuthClick()">
-                <span id="auth-icon">🌐</span> <span id="auth-text">Sign In</span>
+                <span id="auth-icon">🌐</span> <span id="auth-text">جاري التحميل...</span>
             </div>
             
             <div class="menu-item" onclick="window.forceReload()">
@@ -737,6 +737,7 @@
       appId: "1:371129360013:web:377ef70759204018a60cc4"
     };
     let auth;
+    let isAuthInitialized = false; // Flag to prevent UI flickering
     try { firebase.initializeApp(firebaseConfig); auth = firebase.auth(); } catch (e) { console.error("Firebase Init Error", e); }
     const OWNER_EMAIL = "peacemaker3050@gmail.com";
 
@@ -763,7 +764,7 @@
     let refreshInterval = null;
 
     // ============================================================
-    // === 3. AUTH LOGIC (UPDATED FOR PERSISTENCE) ===
+    // === 3. AUTH LOGIC (UPDATED FOR STABILITY) ===
     // ============================================================
     window.handleMenuAuthClick = function() {
         document.getElementById('menu-dropdown').classList.remove('active');
@@ -785,13 +786,14 @@
         if (auth) { auth.signOut().then(() => { console.log("User signed out."); window.location.reload(); }).catch((error) => console.error("Sign out error", error)); }
     };
     
-    // --- MODIFIED FUNCTION FOR SESSION PERSISTENCE ---
+    // --- UPDATED FUNCTION FOR SESSION PERSISTENCE & NO FLICKER ---
     function initFirebaseAuth() { 
         if (!auth) return; 
-        // Set persistence to LOCAL so login survives app restarts in WebView/APK
+        // Set persistence to LOCAL
         auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
             .then(() => {
                 auth.onAuthStateChanged((user) => {
+                    isAuthInitialized = true; // Mark as ready to update UI
                     if (user) console.log("Auth Persistence Active:", user.email);
                     else console.log("User logged out or session cleared.");
                     window.updateAuthUI(); 
@@ -799,12 +801,18 @@
             })
             .catch((error) => {
                 console.error("Auth Persistence Error:", error);
-                // Fallback: If local storage fails (rare), check auth anyway
-                auth.onAuthStateChanged((user) => { window.updateAuthUI(); });
+                // Fallback
+                auth.onAuthStateChanged((user) => { 
+                    isAuthInitialized = true;
+                    window.updateAuthUI(); 
+                });
             });
     }
     
     window.updateAuthUI = function() {
+        // Prevent UI updates until Auth check is complete to stop "Sign In" flash
+        if (!isAuthInitialized) return;
+
         const loginBtn = document.getElementById('google-login-btn'); const loginText = document.getElementById('auth-text'); const loginIcon = document.getElementById('auth-icon');
         const user = auth ? auth.currentUser : null;
         if (user) {
@@ -1026,14 +1034,13 @@
     };
     
     // ============================================================
-    // === FIXED FORCE RELOAD FUNCTION (DOES NOT KILL NOTIFICATIONS) ===
+    // === FIXED FORCE RELOAD FUNCTION ===
     // ============================================================
     window.forceReload = function() {
         document.getElementById('menu-dropdown').classList.remove('active');
         showConfirmModal("Force Reload", "هل تريد تحديث التطبيق بالكامل؟", (confirm) => {
             if(confirm) {
                 // تعديل هام: لا نقوم بإلغاء تثبيت Service Worker لكي لا تتوقف الإشعارات
-                // نحن نقوم فقط بإعادة تحميل الصفحة مع طابع زمني لفرض المتصفح على جلب أحدث ملفات HTML
                 window.location.href = window.location.href.split('?')[0] + '?t=' + new Date().getTime();
             }
         });
@@ -1206,9 +1213,6 @@
 
     // --- Initialization ---
     window.onload = () => {
-        // VISUAL FIX: Set loading state immediately to prevent "Sign In" flash
-        document.getElementById('auth-text').innerText = "جاري التحقق...";
-
         if ('caches' in window) { caches.keys().then(function(names) { for (let name of names) caches.delete(name); }); }
         
         if ('serviceWorker' in navigator) { 
@@ -1227,6 +1231,7 @@
         }
 
         // 1. Initialize Auth first with persistence setting
+        // We do NOT call updateAuthUI immediately here because we want to wait for onAuthStateChanged
         initFirebaseAuth(); 
         fetchConfig(); 
         startSync();
