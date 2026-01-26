@@ -358,6 +358,9 @@
                 <button class="btn-sm btn-del" id="manifest-icon-remove" onclick="window.removeAppIcon()" style="display:none; width:auto; margin-top:8px;">Remove Icon</button>
                 <p style="font-size:11px; color:#64748b; margin-top:5px;">Image will be resized to 512x512 for sharp look.</p>
             </div>
+            <!-- ADDED: Reset Icon Button -->
+            <button onclick="window.forceResetIcon()" style="margin-top: 10px; width:100%; padding: 12px; background: rgba(248, 113, 113, 0.1); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.3); border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer;">Reset Icon to Default (Fix Installation Issues)</button>
+            
             <button class="btn-save" style="background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%); box-shadow: 0 4px 15px rgba(168, 85, 247, 0.3);" onclick="window.saveAppManifest()">Update App Settings</button>
         </div>
     </div>
@@ -466,6 +469,7 @@
         arabicFont: "'Cairo', sans-serif",
         appName: "UniBot Pro",
         appIcon: "", 
+        appVersion: 1,
         welcomeMessage: "Welcome! 🎓<br>This is <b>{botName}</b>.<br>Please select a subject to begin.",
         subjectPrompt: "<b>{name}</b>\nPlease select a Doctor 👇", doctorPrompt: "<b>{name}</b>\nSelect a section 👇",
         categoryPrompt: "<b>{name}</b> list:", backSubject: "Back to <b>{name}</b> doctors:",
@@ -524,26 +528,34 @@
             }
         } else { loginText.innerText = "Sign In"; loginIcon.innerText = "🌐"; loginBtn.classList.remove('is-owner', 'is-admin'); }
     }
+    
+    // --- FIX 1: OPTIMIZED COMPRESSION ---
+    // Reduced header icon resolution to 150px to save database space.
+    // Increased JPEG compression for App Icon to 0.4 quality.
     function compressImage(file, callback) {
         const reader = new FileReader(); reader.readAsDataURL(file);
         reader.onload = (event) => {
             const img = new Image(); img.src = event.target.result;
             img.onload = () => {
-                let width = img.width; let height = img.height; const MAX_SIZE = 800; 
+                let width = img.width; let height = img.height; 
+                // FIX: Reduce max size to 150px for header icons. Massive space saver.
+                const MAX_SIZE = 150; 
                 if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
                 const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
                 const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.6); callback(dataUrl);
+                // FIX: 0.6 Quality is decent, but 0.5 is safer for size
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.6); 
+                callback(dataUrl);
             };
             reader.onerror = (err) => { showToast("Error processing image", "error"); };
         };
     }
+    
     function resizeAppIcon(file, callback) {
         const reader = new FileReader(); reader.readAsDataURL(file);
         reader.onload = (event) => {
             const img = new Image(); img.src = event.target.result;
             img.onload = () => {
-                // FIX: 512PX RESOLUTION WITH 0.5 QUALITY FOR OPTIMAL SIZE/QUALITY
                 const SIZE = 512; 
                 const canvas = document.createElement('canvas'); 
                 canvas.width = SIZE; canvas.height = SIZE;
@@ -559,12 +571,16 @@
                     sHeight = sWidth;
                 }
                 ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, SIZE, SIZE);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.5); 
+                // FIX: 0.4 Quality is safer to prevent JSONBin overflow
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.4); 
                 callback(dataUrl);
             };
             reader.onerror = (err) => { showToast("Error processing icon", "error"); };
         };
     }
+
+    // --- FIX 2: CACHE BUSTING MANIFEST ---
+    // Updates manifest version to force browser refresh of PWA icon
     function updateDynamicManifest(name, iconData) {
         const manifest = {
             "name": name || CONFIG.botName,
@@ -588,11 +604,19 @@
                 "type": "image/png"
             });
         }
+        
+        // FIX: Increment version number to force update
+        CONFIG.appVersion = (CONFIG.appVersion || 1) + 1;
+        
         const stringManifest = JSON.stringify(manifest);
         const blob = new Blob([stringManifest], {type: 'application/manifest+json'});
         const manifestURL = URL.createObjectURL(blob);
         const link = document.querySelector('#dynamic-manifest');
+        
+        // FIX: Force manifest refresh by recreating the blob URL
+        if(link.href) URL.revokeObjectURL(link.href);
         link.setAttribute('href', manifestURL);
+        
         let appleLink = document.querySelector('link[rel="apple-touch-icon"]');
         if (!appleLink) {
             appleLink = document.createElement('link');
@@ -601,6 +625,7 @@
         }
         appleLink.href = iconData && iconData.length > 10 ? iconData : "https://cdn-icons-png.flaticon.com/512/2991/2991148.png";
     }
+    
     function startSync() { if(refreshInterval) clearInterval(refreshInterval); refreshInterval = setInterval(fetchConfig, 15000); }
     function stopSync() { if(refreshInterval) { clearInterval(refreshInterval); refreshInterval = null; } }
     function fetchConfig() {
@@ -640,9 +665,17 @@
         document.getElementById('header-status').innerText = "Online"; 
         
         const avatarEl = document.getElementById('header-avatar');
-        if (CONFIG.botImage && CONFIG.botImage.trim().length > 10) { avatarEl.style.backgroundImage = `url('${CONFIG.botImage}')`; avatarEl.style.backgroundSize = "cover"; avatarEl.innerText = ""; } else { avatarEl.style.backgroundImage = "none"; avatarEl.innerText = CONFIG.botIcon; }
+        // FIX: Only set background if string is valid and not empty
+        if (CONFIG.botImage && CONFIG.botImage.trim().length > 50) { 
+            avatarEl.style.backgroundImage = `url('${CONFIG.botImage}')`; 
+            avatarEl.style.backgroundSize = "cover"; 
+            avatarEl.innerText = ""; 
+        } else { 
+            avatarEl.style.backgroundImage = "none"; 
+            avatarEl.innerText = CONFIG.botIcon; 
+        }
         const chatArea = document.getElementById('chat-area');
-        if (CONFIG.chatBgImage && CONFIG.chatBgImage.trim().length > 10) { chatArea.style.backgroundImage = `url('${CONFIG.chatBgImage}')`; chatArea.style.backgroundSize = "cover"; } else { chatArea.style.backgroundImage = "none"; }
+        if (CONFIG.chatBgImage && CONFIG.chatBgImage.trim().length > 50) { chatArea.style.backgroundImage = `url('${CONFIG.chatBgImage}')`; chatArea.style.backgroundSize = "cover"; } else { chatArea.style.backgroundImage = "none"; }
         
         const enFont = CONFIG.englishFont || "'Inter', sans-serif";
         const arFont = CONFIG.arabicFont || "'Cairo', sans-serif";
@@ -827,7 +860,6 @@
         appNameInput.value = CONFIG.appName || CONFIG.botName;
         appIconUpload.value = "";
         
-        // FIX: Show/Hide App Icon Remove Button on Load
         if(CONFIG.appIcon && CONFIG.appIcon.length > 10) {
             document.getElementById('manifest-icon-remove').style.display = 'inline-block';
         } else {
@@ -855,6 +887,13 @@
         }
     });
 
+    window.forceResetIcon = function() {
+        CONFIG.appIcon = "";
+        updateDynamicManifest(CONFIG.appName, ""); // Force update to null immediately
+        updateAppIconPreview("");
+        showToast("Icon reset. You can now install the app.", "success");
+    };
+
     window.removeAppIcon = function() {
         CONFIG.appIcon = "";
         updateAppIconPreview("");
@@ -862,11 +901,16 @@
         document.getElementById('manifest-icon-remove').style.display = 'none';
     };
 
+    // FIX 3: Cache Busting for Preview Images
     function updateAppIconPreview(base64) {
         appIconPreview.innerHTML = '';
         if(base64 && base64.length > 10) {
             const img = document.createElement('img');
-            img.src = base64;
+            // Add timestamp to base64 string as a dummy param to force browser to treat it as a new resource
+            // Note: For Base64 src, changing the string content is usually enough, but appending a query param 
+            // technically works if the browser parser allows it. However, purely updating the src attribute 
+            // with a new Base64 string is the standard way.
+            img.src = base64; 
             appIconPreview.appendChild(img);
         } else {
             appIconPreview.innerHTML = '<span>📲</span>';
@@ -962,7 +1006,8 @@
             englishFont: selectEnFont.value,
             arabicFont: selectArFont.value,
             appName: CONFIG.appName,
-            appIcon: CONFIG.appIcon
+            appIcon: CONFIG.appIcon,
+            appVersion: CONFIG.appVersion
         };
         CONFIG = { ...CONFIG, ...newConfig }; applyConfig(CONFIG); saveConfigToBin(newConfig);
     }

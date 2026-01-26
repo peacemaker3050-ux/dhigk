@@ -8,12 +8,12 @@
   "orientation": "any",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/2991/2991148.png",
+      "src": "android/android-launchericon-192-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "https://drive.google.com/file/d/16ONDE-tEuy0xxciQLk7nARwjEU5zPoJT/view?usp=drivesdk",
+      "src": "android/android-launchericon-512-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }
