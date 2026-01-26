@@ -344,7 +344,7 @@
         </div>
         <div id="tab-manifest" class="tab-content">
             <div class="admin-section-title" style="color: #a855f7;">App Installation Settings</div>
-            <p style="font-size:13px; color:#94a3b8; margin-bottom:20px; text-align:center;">Customize how the app looks when installed on home screen.</p>
+            <p style="font-size:13px; color:#94a3b8; margin-bottom:20px; text-align:center;">Customize how app looks when installed on home screen.</p>
             <div class="manifest-preview" id="manifest-icon-preview">
                 <span>📲</span>
             </div>
@@ -825,6 +825,14 @@
         window.populateNotifSubjects(); renderAdminDataView();
         appNameInput.value = CONFIG.appName || CONFIG.botName;
         appIconUpload.value = "";
+        
+        // FIX: Show/Hide App Icon Remove Button on Load
+        if(CONFIG.appIcon && CONFIG.appIcon.length > 10) {
+            document.getElementById('manifest-icon-remove').style.display = 'inline-block';
+        } else {
+            document.getElementById('manifest-icon-remove').style.display = 'none';
+        }
+
         updateAppIconPreview(CONFIG.appIcon);
         selectEnFont.value = CONFIG.englishFont || "'Inter', sans-serif";
         selectArFont.value = CONFIG.arabicFont || "'Cairo', sans-serif";
