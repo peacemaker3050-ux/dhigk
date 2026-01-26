@@ -356,7 +356,7 @@
                 <label class="form-label">App Icon (Upload Image)</label>
                 <input type="file" id="manifest-icon-upload" accept="image/*" style="color: #aaa; font-size: 12px; background: rgba(0,0,0,0.2); padding: 5px;">
                 <button class="btn-sm btn-del" id="manifest-icon-remove" onclick="window.removeAppIcon()" style="display:none; width:auto; margin-top:8px;">Remove Icon</button>
-                <p style="font-size:11px; color:#64748b; margin-top:5px;">Image will be cropped to a square. Recommended: High resolution PNG/JPG.</p>
+                <p style="font-size:11px; color:#64748b; margin-top:5px;">Image will be resized to 512x512 for sharp look.</p>
             </div>
             <button class="btn-save" style="background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%); box-shadow: 0 4px 15px rgba(168, 85, 247, 0.3);" onclick="window.saveAppManifest()">Update App Settings</button>
         </div>
@@ -543,7 +543,8 @@
         reader.onload = (event) => {
             const img = new Image(); img.src = event.target.result;
             img.onload = () => {
-                const SIZE =512; 
+                // FIX: 512PX RESOLUTION WITH 0.5 QUALITY FOR OPTIMAL SIZE/QUALITY
+                const SIZE = 512; 
                 const canvas = document.createElement('canvas'); 
                 canvas.width = SIZE; canvas.height = SIZE;
                 const ctx = canvas.getContext('2d');
@@ -558,7 +559,7 @@
                     sHeight = sWidth;
                 }
                 ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, SIZE, SIZE);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.7); 
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.5); 
                 callback(dataUrl);
             };
             reader.onerror = (err) => { showToast("Error processing icon", "error"); };
