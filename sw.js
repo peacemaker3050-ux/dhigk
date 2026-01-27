@@ -1,12 +1,10 @@
 // ============================================================
-// === HYBRID SERVICE WORKER (FCM + POLLING) ===
+// === HYBRID SERVICE WORKER (FCM + FAST POLLING) ===
 // ============================================================
 
-// 1. IMPORT FIREBASE LIBRARIES (To enable FCM capability)
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js');
 
-// 2. CONFIGURATION (Firebase + JSONBin)
 const firebaseConfig = {
   apiKey: "AIzaSyBUzcbZDAFS3rhjcp2-maEiSTmuBmUlGPQ",
   authDomain: "libirary-b2424.firebaseapp.com",
@@ -16,15 +14,13 @@ const firebaseConfig = {
   appId: "1:371129360013:web:377ef70759204018a60cc4"
 };
 
-// Initialize Firebase immediately
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-// JSONBin Settings
 const BIN_ID = "696e77bfae596e708fe71e9d";
 const BIN_KEY = "$2a$10$TunKuA35QdJp478eIMXxRunQfqgmhDY3YAxBXUXuV/JrgIFhU0Lf2";
 
-// 3. INDEXEDDB SETUP (Important for preventing duplicate notifications)
+// 3. INDEXEDDB SETUP
 let db;
 let dbReady = false;
 
@@ -36,15 +32,11 @@ const initDB = () => {
         if (!db.objectStoreNames.contains('settings')) {
             db.createObjectStore('settings', { keyPath: 'id' });
         }
-        // We keep auth store if you plan to use FCM tokens later
-        if (!db.objectStoreNames.contains('auth')) {
-            db.createObjectStore('auth', { keyPath: 'id' });
-        }
     };
     request.onsuccess = (e) => {
         db = e.target.result;
         dbReady = true;
-        console.log("[SW] IndexedDB Initialized");
+        console.log("[SW] DB Initialized");
         resolve(db);
     };
     request.onerror = (e) => {
@@ -54,7 +46,6 @@ const initDB = () => {
   });
 };
 
-// Helper functions to get/set data from IndexedDB
 async function getLastTime() {
     if (!db) return 0;
     return new Promise((resolve) => {
@@ -72,28 +63,26 @@ async function setLastTime(time) {
     tx.objectStore('settings').put({ id: 'lastNotifTime', value: time });
 }
 
-// 4. SW INSTALL EVENT
+// 4. SW INSTALL
 self.addEventListener('install', (event) => { 
     self.skipWaiting(); 
     console.log("[SW] Installed");
-    // Initialize DB immediately
     event.waitUntil(initDB());
 });
 
-// 5. SW ACTIVATE EVENT
+// 5. SW ACTIVATE
 self.addEventListener('activate', (event) => { 
     event.waitUntil(
         Promise.all([
             self.clients.claim(), 
-            // Register Periodic Background Sync (Android Only)
+            // Register Periodic Sync (Hard Limit: 15 mins - Used as Safety Net)
             (async () => {
                 if ('periodicSync' in self.registration) {
                     try {
-                        // Register to check every 15 minutes
                         await self.registration.periodicSync.register('check-doctor-msg', {
                             minInterval: 15 * 60 * 1000 
                         });
-                        console.log("[SW] Periodic Sync Registered (15 min interval)");
+                        console.log("[SW] Periodic Sync Registered");
                     } catch (err) {
                         console.log("[SW] Periodic Sync not supported/allowed:", err);
                     }
@@ -101,31 +90,33 @@ self.addEventListener('activate', (event) => {
             })()
         ])
     ); 
+    
+    // FAST POLLING LOOP (Aggressive: 1 Minute)
+    // This runs while SW is alive (foreground or background minimzed).
+    // Browser may kill this if app is fully closed to save battery.
+    setInterval(() => {
+        checkNotifications();
+    }, 60 * 1000); // 60,000ms = 1 Minute
 });
 
-// 6. FCM: HANDLE MESSAGES SENT FROM SERVER (Background)
-// Note: This only triggers if a SERVER sends a message via FCM.
-// Since we are polling JSONBin, this event usually won't fire unless you add a backend.
+// 6. FCM BACKGROUND HANDLER
 messaging.onBackgroundMessage((payload) => {
-  console.log('[SW] FCM Message received:', payload);
-
   const notificationTitle = payload.notification.title;
   const notificationOptions = {
     body: payload.notification.body,
     icon: payload.notification.icon || 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png',
     badge: 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png',
     vibrate: [200, 100, 200],
-    data: {
-        click_action: payload.fcmOptions?.link || '/'
-    }
+    data: { click_action: payload.fcmOptions?.link || '/' }
   };
-
   return self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// 7. HANDLE NOTIFICATION CLICKS (Focus or Open App)
+// 7. HANDLE NOTIFICATION CLICKS (Open App + Deep Link)
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
+    const url = event.notification.data.click_action || '/';
+    
     event.waitUntil(
         clients.matchAll({
             type: 'window',
@@ -139,31 +130,28 @@ self.addEventListener('notificationclick', (event) => {
             }
             // If app is closed, open it
             if (clients.openWindow) {
-                return clients.openWindow('.');
+                return clients.openWindow(url);
             }
         })
     );
 });
 
-// 8. HANDLE MESSAGES FROM APP (Foreground/Testing)
+// 8. APP MESSAGES (Testing)
 self.addEventListener('message', (event) => {
     const data = event.data;
-    // Test Messages triggered by user from HTML
     if (data.type === 'SYNCED_NOTIF_DOCTOR' || data.type === 'TEST_NOTIF') {
         if (Notification.permission === 'granted') {
-            self.registration.showNotification(data.type === 'TEST_NOTIF' ? '🧪 Test Successful' : '📢 Messages from Doctors', { 
+            self.registration.showNotification(data.type === 'TEST_NOTIF' ? '🧪 Test Successful' : '📢 Update Available', { 
                 body: data.body || 'Tap to read details.', 
                 icon: data.icon || 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png', 
-                requireInteraction: false, 
                 tag: 'doctor-notification', 
-                silent: false, 
                 vibrate: [200, 100, 200] 
             });
         }
     }
 });
 
-// 9. POLLING LOGIC (This runs via Periodic Sync when app is CLOSED)
+// 9. POLLING LOGIC (Deep Content Extraction)
 async function checkNotifications() {
     if (!dbReady) {
         console.log("[SW] DB not ready, initializing...");
@@ -174,7 +162,7 @@ async function checkNotifications() {
     try {
         const lastNotifTime = await getLastTime();
         
-        // Add timestamp to URL to prevent browser caching
+        // Fetch Data
         const url = 'https://api.jsonbin.io/v3/b/'+BIN_ID+'/latest?nocache=' + Date.now();
         
         const response = await fetch(url, { 
@@ -188,22 +176,36 @@ async function checkNotifications() {
         if (!response.ok) throw new Error("Network response was not ok");
         const data = await response.json();
 
-        // Compare latest timestamp from DB with stored timestamp
-        if (data && data.latestNotificationUpdate && data.latestNotificationUpdate > lastNotifTime) {
-            console.log("[SW] New Update detected via Polling!");
-            
-            // Save new timestamp so we don't show this notification again
-            setLastTime(data.latestNotificationUpdate);
+        // Check for new updates
+        if (data && data.recentUpdates && data.recentUpdates.length > 0) {
+            const newestUpdate = data.recentUpdates[0]; // Assuming sorted by newest first
 
-            if (Notification.permission === 'granted') {
-                self.registration.showNotification('📢 Messages from Doctors', { 
-                    body: 'Tap to open app and read details.', 
-                    icon: data.appIcon || 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png', 
-                    requireInteraction: false,
-                    tag: 'doctor-notification', 
-                    silent: false, 
-                    vibrate: [200, 100, 200] 
-                });
+            // Ensure timestamp is valid
+            const updateTimestamp = newestUpdate.timestamp || Date.now();
+
+            if (updateTimestamp > lastNotifTime) {
+                console.log("[SW] New Update detected!");
+                
+                // Save the timestamp
+                setLastTime(updateTimestamp);
+
+                if (Notification.permission === 'granted') {
+                    // CONSTRUCT DEEP LINK
+                    // Pass Subject and Doctor to URL so app can auto-navigate
+                    const deepLink = `/?subject=${encodeURIComponent(newestUpdate.subject)}&doctor=${encodeURIComponent(newestUpdate.doctor)}&action=open_notification`;
+
+                    self.registration.showNotification('📢 New Message', { 
+                        body: `From ${newestUpdate.doctor} (${newestUpdate.subject})`, 
+                        icon: data.appIcon || 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png', 
+                        requireInteraction: true, // Forces user to tap, keeps it visible
+                        tag: 'latest-update', // Replaces old notification
+                        silent: false, 
+                        vibrate: [200, 100, 200],
+                        data: {
+                            click_action: deepLink
+                        }
+                    });
+                }
             }
         }
     } catch (err) {
@@ -211,9 +213,8 @@ async function checkNotifications() {
     }
 }
 
-// 10. PERIODIC BACKGROUND SYNC EVENT (Triggered by Browser periodically)
+// 10. PERIODIC SYNC EVENT
 self.addEventListener('sync', event => {
-    console.log("[SW] Periodic Sync Triggered:", event.tag);
     if (event.tag === 'check-doctor-msg') {
         event.waitUntil(checkNotifications());
     }

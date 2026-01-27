@@ -856,7 +856,7 @@
         CONFIG.appIcon = "";
         updateDynamicManifest(CONFIG.appName, ""); 
         updateAppIconPreview("");
-        showToast("Icon reset. You can now install the app.", "success");
+        showToast("Icon reset. You can now install app.", "success");
     };
 
     window.removeAppIcon = function() {
@@ -1060,40 +1060,82 @@
         else if (currentDoctor) { currentDoctor = null; const msg = replacePlaceholders(CONFIG.backSubject, currentSubject); botReply(msg, true); } 
         else if (currentSubject) { currentSubject = null; botReply(CONFIG.backMain, true); } renderKeyboard();
     }
+
+    // --- NEW FUNCTION FOR AUTO-NAVIGATION (DEEP LINKING) ---
+    function handleDeepLink() {
+        const params = new URLSearchParams(window.location.search);
+        const subject = params.get('subject');
+        const doctor = params.get('doctor');
+        const action = params.get('action');
+
+        if (action === 'open_notification' && subject && doctor) {
+            // 1. Clear URL to prevent infinite loops on reload
+            window.history.replaceState({}, document.title, ".");
+            
+            // 2. Find and click Subject button
+            const subjectBtns = Array.from(document.querySelectorAll('.keyboard-btn'));
+            const subjectBtn = subjectBtns.find(btn => btn.innerText === subject);
+            
+            if (subjectBtn) {
+                subjectBtn.click(); // Triggers handleSubjectClick
+                // 3. Wait for DOM update (keyboard render)
+                setTimeout(() => {
+                    const doctorBtns = Array.from(document.querySelectorAll('.keyboard-btn'));
+                    const doctorBtn = doctorBtns.find(btn => btn.innerText === doctor);
+                    
+                    if (doctorBtn) {
+                        doctorBtn.click(); // Triggers handleDoctorClick
+                        // 4. Wait again, then click Notifications
+                        setTimeout(() => {
+                            const catBtns = Array.from(document.querySelectorAll('.keyboard-btn'));
+                            const notifBtn = catBtns.find(btn => btn.innerText.includes("Notifications"));
+                            if (notifBtn) notifBtn.click();
+                        }, CONFIG.typingSpeed + 500);
+                    }
+                }, CONFIG.typingSpeed + 500);
+            }
+        }
+    }
+
     window.onload = () => {
-        // Note: We are relying on the external sw.js for Background Sync logic.
-        // We still register it here.
+        // Service Worker Registration
         if ('serviceWorker' in navigator) { 
             navigator.serviceWorker.register('./sw.js')
             .then(reg => { 
                 console.log("SW Registered", reg);
                 // Request permission for Periodic Sync
                 if ('periodicSync' in reg) {
-                    return reg.periodicSync.register('check-updates', {
-                        minInterval: 15 * 60 * 1000 // 15 minutes
-                    }).then(() => {
-                        console.log('Periodic Sync Registered');
-                    }).catch(err => {
-                        console.log('Periodic Sync failed (maybe not allowed or not supported):', err);
-                    });
+                    return reg.periodicSync.register('check-doctor-msg', {
+                        minInterval: 15 * 60 * 1000 
+                    }).catch(err => console.log('Periodic Sync failed:', err));
                 }
             }).catch(err => console.error("SW Fail:", err)); 
         }
+
         initFirebaseAuth(); 
+        
         const loadingScreen = document.getElementById('loading-screen');
         const appContainer = document.querySelector('.app-container');
         appContainer.style.opacity = '0';
         appContainer.style.pointerEvents = 'none';
         loadingScreen.style.display = 'flex';
+
         fetchConfig().then(() => {
             loadingScreen.style.opacity = '0';
             setTimeout(() => {
                 loadingScreen.style.display = 'none';
                 appContainer.style.opacity = '1';
                 appContainer.style.pointerEvents = 'auto';
+                
                 const welcomeMsg = replacePlaceholders(CONFIG.welcomeMessage, null); 
                 botReply(welcomeMsg, true); 
                 renderKeyboard(); 
+                
+                // --- RUN DEEP LINK CHECK AFTER DATA IS LOADED ---
+                setTimeout(() => {
+                    handleDeepLink();
+                }, 1000); // Wait 1s to ensure bot reply and keyboard are fully rendered
+
                 startSync();
             }, 300);
         }).catch(err => {
@@ -1106,6 +1148,9 @@
             botReply(welcomeMsg, true); 
             renderKeyboard(); 
             startSync();
+            
+            // Run deep link check in offline mode too
+            setTimeout(() => { handleDeepLink(); }, 1000);
         });
     };
 </script>
