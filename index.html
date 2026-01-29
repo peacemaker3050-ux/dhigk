@@ -17,6 +17,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Poppins:wght@400;500;600;700&family=Open+Sans:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Cairo:wght@400;600;700&family=Tajawal:wght@400;500;700&family=Almarai:wght@400;700;800&family=Amiri:wght@400;700&family=El+Messiri:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    
+    <!-- استدعاء مكتبات Capacitor للإشعارات -->
+    <script type="module">
+        import { PushNotifications } from 'https://cdn.jsdelivr.net/npm/@capacitor/push-notifications@latest/dist/esm/index.js';
+        import { LocalNotifications } from 'https://cdn.jsdelivr.net/npm/@capacitor/local-notifications@latest/dist/esm/index.js';
+        
+        window.PushNotifications = PushNotifications;
+        window.LocalNotifications = LocalNotifications;
+    </script>
+
     <style>
         :root{--bg-dark:#0f172a;--bg-glass:rgba(15,23,42,0.85);--bg-glass-heavy:rgba(15,23,42,0.95);--accent-primary:#3b82f6;--accent-gradient:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);--msg-bot-bg:rgba(255,255,255,0.2);--msg-user-bg:linear-gradient(135deg,#3b82f6 0%,#1d4ed8 100%);--text-primary:#f8fafc;--text-secondary:#94a3b8;--border-color:rgba(255,255,255,0.1);--shadow-soft:0 4px 6px -1px rgba(0,0,0,0.1),0 2px 4px -1px rgba(0,0,0,0.06);--shadow-glow:0 0 15px rgba(59,130,246,0.3);--glass-blur:blur(16px);--radius-md:12px;--radius-lg:20px;--radius-full:999px;--font-en:'Inter',sans-serif;--font-ar:'Cairo',sans-serif}
         *{box-sizing:border-box;outline:none;-webkit-tap-highlight-color:transparent}
@@ -358,9 +368,9 @@
                 <button class="btn-sm btn-del" id="manifest-icon-remove" onclick="window.removeAppIcon()" style="display:none; width:auto; margin-top:8px;">Remove Icon</button>
                 <p style="font-size:11px; color:#64748b; margin-top:5px;">Image will be resized to 512x512 for sharp look.</p>
             </div>
-            <!-- ADDED: Reset Icon Button -->
-            <button onclick="window.forceResetIcon()" style="margin-top: 10px; width:100%; padding: 12px; background: rgba(248, 113, 113, 0.1); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.3); border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer;">Reset Icon to Default (Fix Installation Issues)</button>
-            
+            <p style="font-size:12px; color:#fbbf24; background:rgba(251, 191, 36, 0.1); padding:10px; border-radius:8px; text-align:center; border:1px solid rgba(251,191,36,0.2); margin-bottom:15px;">
+                ⚠️ Note: Changing icon/name requires users to <b>Uninstall</b> and <b>Re-install</b> app to see changes.
+            </p>
             <button class="btn-save" style="background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%); box-shadow: 0 4px 15px rgba(168, 85, 247, 0.3);" onclick="window.saveAppManifest()">Update App Settings</button>
         </div>
     </div>
@@ -499,6 +509,7 @@
     };
     function initFirebaseAuth() { 
         if (!auth) return; 
+        // FIX: Use LOCAL Persistence to avoid "Missing Initial State" errors caused by SessionStorage loss
         auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
             .then(() => {
                 auth.onAuthStateChanged((user) => {
@@ -507,6 +518,7 @@
                 }); 
             })
             .catch((error) => {
+                console.error("Auth Persistence Error:", error);
                 auth.onAuthStateChanged((user) => { 
                     isAuthInitialized = true;
                     window.updateAuthUI(); 
@@ -564,11 +576,17 @@
         };
     }
 
+    // UPDATED: Dynamic Manifest with Cache Busting
     function updateDynamicManifest(name, iconData) {
+        const version = CONFIG.appVersion || 1;
+        const baseUrl = window.location.href.split('?')[0] || window.location.href;
+        const startUrl = `${baseUrl}?v=${version}`;
+        
         const manifest = {
             "name": name || CONFIG.botName,
             "short_name": name || CONFIG.botName,
-            "start_url": ".",
+            "start_url": startUrl,
+            "id": window.location.origin + "?v=" + version, 
             "display": "standalone",
             "background_color": "#0f172a",
             "theme_color": "#0f172a",
@@ -579,13 +597,17 @@
         } else {
             manifest.icons.push({ "src": "https://cdn-icons-png.flaticon.com/512/2991/2991148.png", "sizes": "512x512", "type": "image/png" });
         }
-        CONFIG.appVersion = (CONFIG.appVersion || 1) + 1;
+        
         const stringManifest = JSON.stringify(manifest);
         const blob = new Blob([stringManifest], {type: 'application/manifest+json'});
         const manifestURL = URL.createObjectURL(blob);
+        
         const link = document.querySelector('#dynamic-manifest');
-        if(link.href) URL.revokeObjectURL(link.href);
+        if(link.href && link.href.startsWith('blob:')) {
+            URL.revokeObjectURL(link.href);
+        }
         link.setAttribute('href', manifestURL);
+        
         let appleLink = document.querySelector('link[rel="apple-touch-icon"]');
         if (!appleLink) { appleLink = document.createElement('link'); appleLink.rel = 'apple-touch-icon'; document.head.appendChild(appleLink); }
         appleLink.href = iconData && iconData.length > 10 ? iconData : "https://cdn-icons-png.flaticon.com/512/2991/2991148.png";
@@ -852,13 +874,6 @@
         }
     });
 
-    window.forceResetIcon = function() {
-        CONFIG.appIcon = "";
-        updateDynamicManifest(CONFIG.appName, ""); 
-        updateAppIconPreview("");
-        showToast("Icon reset. You can now install app.", "success");
-    };
-
     window.removeAppIcon = function() {
         CONFIG.appIcon = "";
         updateAppIconPreview("");
@@ -881,10 +896,13 @@
         const name = appNameInput.value.trim();
         if(!name) return showToast("App name cannot be empty", "error");
         
+        CONFIG.appVersion = (CONFIG.appVersion || 1) + 1;
+        
         const newConfig = {
             ...CONFIG,
             appName: name,
-            appIcon: CONFIG.appIcon
+            appIcon: CONFIG.appIcon,
+            appVersion: CONFIG.appVersion
         };
         
         const saveBtn = document.querySelector('#tab-manifest .btn-save');
@@ -894,8 +912,9 @@
         fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_ACCESS_KEY }, body: JSON.stringify(newConfig) })
         .then(res => { 
             if (!res.ok) throw new Error("Save failed"); 
-            showToast("✅ Saved. Clearing cache & Reloading...", "success"); 
-            CONFIG.appName = name;
+            showToast("✅ Settings Saved! Reloading...", "success"); 
+            CONFIG = { ...CONFIG, ...newConfig }; 
+            
             updateDynamicManifest(CONFIG.appName, CONFIG.appIcon);
             
             if ('caches' in window) {
@@ -907,7 +926,8 @@
             }
 
             setTimeout(() => {
-                window.location.reload(true);
+                const baseUrl = window.location.href.split('?')[0];
+                window.location.href = `${baseUrl}?v=${CONFIG.appVersion}`;
             }, 1500);
         })
         .catch(err => { 
@@ -1023,8 +1043,8 @@
             if(!confirmed) return;
             if (level === 0) { const subKeys = Object.keys(database); delete database[subKeys[index]]; } 
             else if (level === 1) { const sub = adminNavStack[0]; const docName = database[sub].doctors[index]; database[sub].doctors.splice(index, 1); delete database[sub][docName]; }
-            else if (level === 2) { const sub = adminNavStack[0]; const doc = adminNavStack[1]; const secName = database[sub][doc].sections[index]; database[sub][doc].sections.splice(index, 1); delete database[sub][doc][secName]; }
-            else if (level === 3) { const sub = adminNavStack[0]; const doc = adminNavStack[1]; const sec = adminNavStack[2]; database[sub][doc][sec].splice(index, 1); }
+            else if (level === 2) { const sub = adminNavStack[0]; const docName = adminNavStack[1]; const secName = database[sub][doc].sections[index]; database[sub][doc].sections.splice(index, 1); delete database[sub][doc][secName]; }
+            else if (level === 3) { const sub = adminNavStack[0]; const docName = adminNavStack[1]; const secName = adminNavStack[2]; database[sub][doc][sec].splice(index, 1); }
             renderAdminDataView();
         });
     }
@@ -1061,7 +1081,6 @@
         else if (currentSubject) { currentSubject = null; botReply(CONFIG.backMain, true); } renderKeyboard();
     }
 
-    // --- NEW FUNCTION FOR AUTO-NAVIGATION (DEEP LINKING) ---
     function handleDeepLink() {
         const params = new URLSearchParams(window.location.search);
         const subject = params.get('subject');
@@ -1069,23 +1088,18 @@
         const action = params.get('action');
 
         if (action === 'open_notification' && subject && doctor) {
-            // 1. Clear URL to prevent infinite loops on reload
             window.history.replaceState({}, document.title, ".");
-            
-            // 2. Find and click Subject button
             const subjectBtns = Array.from(document.querySelectorAll('.keyboard-btn'));
             const subjectBtn = subjectBtns.find(btn => btn.innerText === subject);
             
             if (subjectBtn) {
-                subjectBtn.click(); // Triggers handleSubjectClick
-                // 3. Wait for DOM update (keyboard render)
+                subjectBtn.click();
                 setTimeout(() => {
                     const doctorBtns = Array.from(document.querySelectorAll('.keyboard-btn'));
                     const doctorBtn = doctorBtns.find(btn => btn.innerText === doctor);
                     
                     if (doctorBtn) {
-                        doctorBtn.click(); // Triggers handleDoctorClick
-                        // 4. Wait again, then click Notifications
+                        doctorBtn.click();
                         setTimeout(() => {
                             const catBtns = Array.from(document.querySelectorAll('.keyboard-btn'));
                             const notifBtn = catBtns.find(btn => btn.innerText.includes("Notifications"));
@@ -1097,13 +1111,90 @@
         }
     }
 
+    // --- دالة اشعارات Capacitor (الجديدة) ---
+    async function setupCapacitorNotifications() {
+        // التحقق إذا كنا في بيئة Capacitor (تطبيق أصلي) وليس متصفح
+        if (!window.Capacitor) return;
+
+        try {
+            // طلب الإذن
+            let permStatus = await window.PushNotifications.checkPermissions();
+
+            if (permStatus.receive === 'prompt') {
+                permStatus = await window.PushNotifications.requestPermissions();
+            }
+
+            if (permStatus.receive !== 'granted') {
+                console.log('User denied permissions!');
+                return;
+            }
+
+            // تسجيل المستخدم على خوادم جوجل
+            await window.PushNotifications.register();
+
+            // (أ) الحصول على التوكن الخاص بهذا الهاتف
+            window.PushNotifications.addListener('registration', (token) => {
+                console.log('My push token: ' + token.value);
+                
+                // سنعرض التوكن على شاشة البوت لكتابته وحفظه
+                showToast('تم تسجيل التوكن بنجاح! شاهده في الـ Console (F12)', 'success');
+                console.warn('انسخ هذا التوكن واحفظه:', token.value);
+            });
+
+            // (ب) عند وصول اشعار والشاشة مفتوحة
+            window.PushNotifications.addListener('pushNotificationReceived', (notification) => {
+                console.log('Push received: ' + JSON.stringify(notification));
+                
+                // عرض اشعار محلي لضمان ظهوره داخل التطبيق
+                window.LocalNotifications.schedule({
+                    notifications: [{
+                        title: notification.title,
+                        body: notification.body,
+                        id: Date.now(),
+                        schedule: { at: new Date() },
+                    }]
+                });
+            });
+
+            // (ج) عند الضغط على الاشعار في الخلفية
+            window.PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
+                console.log('Push action performed: ' + JSON.stringify(notification));
+            });
+        } catch (e) {
+            console.error("Error setting up notifications", e);
+        }
+    }
+
+    // *** الحل النهائي لمشكلة Auth Handler و Missing Initial State ***
     window.onload = () => {
-        // Service Worker Registration
+        
+        // 1. تحقق: هل نحن حالياً على رابط إعادة توجيه Firebase (Auth Handler)؟
+        const currentUrl = window.location.href;
+        if (currentUrl.includes('/__/auth/handler')) {
+            // إذا نعم: أوقف تحميل التطبيق. نظهر رسالة بسيطة فقط.
+            // هذا يمنع أي تداخل مع عملية Firebase ولحل مشكلة "Missing Initial State"
+            document.body.innerHTML = "<h1 style='color:#fff; text-align:center; margin-top:20vh; font-family:sans-serif'>Finalizing Login... ✨</h1><p style='color:#94a3b8; text-align:center'>You will be redirected shortly.</p>";
+            
+            // تأكد من تشغيل Firebase لمعالجة الرد، لكن لا تقم بتحميل باقي التطبيق
+            if (!auth) { try { firebase.initializeApp(firebaseConfig); auth = firebase.auth(); } catch(e){} }
+            
+            // ننتظر أن تقوم Firebase بإعادة التوجيه. إذا توقف (أخطاء)، نحاول إعادة تحميل للصفحة الرئيسية بعد 5 ثواني
+            setTimeout(() => {
+                if (window.location.href.includes('/__/auth/handler')) {
+                    window.location.href = window.location.origin;
+                }
+            }, 5000);
+            
+            return; // توقف هنا ولا تنفذ باقي الكود
+        }
+
+        // 2. إذا لم يكن رابط Auth Handler، نفذ التحميل العادي للتطبيق
+        
+        // تسجيل الـ Service Worker (يحدث في الخلفية)
         if ('serviceWorker' in navigator) { 
             navigator.serviceWorker.register('./sw.js')
             .then(reg => { 
                 console.log("SW Registered", reg);
-                // Request permission for Periodic Sync
                 if ('periodicSync' in reg) {
                     return reg.periodicSync.register('check-doctor-msg', {
                         minInterval: 15 * 60 * 1000 
@@ -1112,46 +1203,40 @@
             }).catch(err => console.error("SW Fail:", err)); 
         }
 
+        // بدء مصادقة Firebase مع LOCAL Persistence (التصحيح الرئيسي للخطأ)
         initFirebaseAuth(); 
         
+        // التعامل مع الشاشة: نظهر التطبيق فوراً ونضع اللودينج فوقه فقط
         const loadingScreen = document.getElementById('loading-screen');
         const appContainer = document.querySelector('.app-container');
-        appContainer.style.opacity = '0';
-        appContainer.style.pointerEvents = 'none';
-        loadingScreen.style.display = 'flex';
-
-        fetchConfig().then(() => {
+        
+        // إخفاء الشاشة البيضاء (اللودينج) بعد ثانية ونصف بغض النظر عن حالة الشبكة
+        setTimeout(() => {
             loadingScreen.style.opacity = '0';
             setTimeout(() => {
                 loadingScreen.style.display = 'none';
-                appContainer.style.opacity = '1';
-                appContainer.style.pointerEvents = 'auto';
-                
-                const welcomeMsg = replacePlaceholders(CONFIG.welcomeMessage, null); 
-                botReply(welcomeMsg, true); 
-                renderKeyboard(); 
-                
-                // --- RUN DEEP LINK CHECK AFTER DATA IS LOADED ---
-                setTimeout(() => {
-                    handleDeepLink();
-                }, 1000); // Wait 1s to ensure bot reply and keyboard are fully rendered
-
-                startSync();
             }, 300);
-        }).catch(err => {
-            console.error("Initial Sync Failed", err);
-            showToast("Offline Mode: Using cached data", "error");
-            loadingScreen.style.display = 'none';
-            appContainer.style.opacity = '1';
-            appContainer.style.pointerEvents = 'auto';
-            const welcomeMsg = replacePlaceholders(CONFIG.welcomeMessage, null); 
-            botReply(welcomeMsg, true); 
-            renderKeyboard(); 
-            startSync();
-            
-            // Run deep link check in offline mode too
-            setTimeout(() => { handleDeepLink(); }, 1000);
-        });
+        }, 1500);
+
+        // عرض الواجهة بالبيانات الافتراضية فوراً (لمنع الشاشة البيضاء)
+        const welcomeMsg = replacePlaceholders(CONFIG.welcomeMessage, null); 
+        botReply(welcomeMsg, true); 
+        renderKeyboard(); 
+
+        // محاولة جلب البيانات الحقيقية في الخلفية (Non-blocking)
+        fetchConfig()
+            .then(() => {
+                showToast("🎉 Synced with Cloud", "success");
+            })
+            .catch(err => {
+                console.error("Initial Sync Failed", err);
+                showToast("⚠️ Offline Mode: Using cached data", "error");
+            });
+
+        // تشغيل باقي الوظائف
+        handleDeepLink();
+        setupCapacitorNotifications();
+        startSync();
     };
 </script>
 </body>
