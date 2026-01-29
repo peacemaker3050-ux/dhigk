@@ -500,6 +500,7 @@
                 window.logoutUser();
             }
         } else {
+            // نستخدم Popup كما تنصح النصيحة، وهو بالفعل موجود
             const provider = new firebase.auth.GoogleAuthProvider();
             auth.signInWithPopup(provider).then((result) => { window.updateAuthUI(); showToast("Login Successful", "success"); }).catch((error) => { showToast("Login Failed: " + error.message, "error"); });
         }
@@ -1165,31 +1166,48 @@
         }
     }
 
-    // *** الحل النهائي لمشكلة Auth Handler و Missing Initial State ***
+    // *** الحل النهائي للتطبيقات (Fail-Safe Redirect) ***
     window.onload = () => {
         
-        // 1. تحقق: هل نحن حالياً على رابط إعادة توجيه Firebase (Auth Handler)؟
+        // 1. تهيئة Firebase فوراً لضمان توفر الـ auth instance
+        if (!auth) { try { firebase.initializeApp(firebaseConfig); auth = firebase.auth(); } catch(e){} }
+        
+        // 2. معالجة خاصة لرابط التحقق (Auth Handler)
+        // هذه المشكلة تحدث في التطبيق حيث يتم التحويل إلى Redirect بدلاً من Popup
         const currentUrl = window.location.href;
         if (currentUrl.includes('/__/auth/handler')) {
-            // إذا نعم: أوقف تحميل التطبيق. نظهر رسالة بسيطة فقط.
-            // هذا يمنع أي تداخل مع عملية Firebase ولحل مشكلة "Missing Initial State"
-            document.body.innerHTML = "<h1 style='color:#fff; text-align:center; margin-top:20vh; font-family:sans-serif'>Finalizing Login... ✨</h1><p style='color:#94a3b8; text-align:center'>You will be redirected shortly.</p>";
             
-            // تأكد من تشغيل Firebase لمعالجة الرد، لكن لا تقم بتحميل باقي التطبيق
-            if (!auth) { try { firebase.initializeApp(firebaseConfig); auth = firebase.auth(); } catch(e){} }
+            // لا نظهر أي واجهة، نتركها سوداء/بيضاء لمدة ثانية
+            // ولكن نقوم بمعالجة الرد
             
-            // ننتظر أن تقوم Firebase بإعادة التوجيه. إذا توقف (أخطاء)، نحاول إعادة تحميل للصفحة الرئيسية بعد 5 ثواني
+            // استدعاء getRedirectResult لمعالجة العملية وضبط الكوكيز
+            auth.getRedirectResult()
+                .then((result) => {
+                    // النجاح: المستخدم موجود
+                    console.log("Redirect Result:", result);
+                    // العودة للصفحة الرئيسية. LocalStorage سيحتفظ بالجلسة.
+                    window.location.replace(window.location.origin);
+                })
+                .catch((error) => {
+                    // الفشل: قد يكون "Missing Initial State" أو إلغاء المستخدم
+                    // النصيحة الحقيقية: حتى لو حدث خطأ، نعود للصفحة الرئيسية
+                    // لأننا وضعنا Persistence = Local، فإذا كان المستخدم مسجلاً قبل ذلك، سيعود له
+                    // وإذا لم يكن، سيظهر له زر تسجيل الدخول.
+                    console.error("Redirect Error (Safe to ignore):", error);
+                    window.location.replace(window.location.origin);
+                });
+
+            // Safety net: إذا لم يتم تنفيذ الوعد فوقه لسبب ما
             setTimeout(() => {
                 if (window.location.href.includes('/__/auth/handler')) {
-                    window.location.href = window.location.origin;
+                    window.location.replace(window.location.origin);
                 }
-            }, 5000);
-            
-            return; // توقف هنا ولا تنفذ باقي الكود
+            }, 2000); // 2 ثواني فقط
+
+            return; // نوقف تحميل باقي التطبيق
         }
 
-        // 2. إذا لم يكن رابط Auth Handler، نفذ التحميل العادي للتطبيق
-        
+        // 3. التحميل العادي للتطبيق
         // تسجيل الـ Service Worker (يحدث في الخلفية)
         if ('serviceWorker' in navigator) { 
             navigator.serviceWorker.register('./sw.js')
@@ -1203,7 +1221,7 @@
             }).catch(err => console.error("SW Fail:", err)); 
         }
 
-        // بدء مصادقة Firebase مع LOCAL Persistence (التصحيح الرئيسي للخطأ)
+        // بدء مصادقة Firebase مع LOCAL Persistence
         initFirebaseAuth(); 
         
         // التعامل مع الشاشة: نظهر التطبيق فوراً ونضع اللودينج فوقه فقط
