@@ -15,1247 +15,1410 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Poppins:wght@400;500;600;700&family=Open+Sans:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Cairo:wght@400;600;700&family=Tajawal:wght@400;500;700&family=Almarai:wght@400;700;800&family=Amiri:wght@400;700&family=El+Messiri:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     
-    <!-- استدعاء مكتبات Capacitor للإشعارات -->
+    <!-- MODIFIED: Capacitor Native Auth & Core Import -->
     <script type="module">
+        import { FirebaseAuthentication } from 'https://cdn.jsdelivr.net/npm/@capacitor-firebase/authentication@latest/dist/esm/index.js';
         import { PushNotifications } from 'https://cdn.jsdelivr.net/npm/@capacitor/push-notifications@latest/dist/esm/index.js';
         import { LocalNotifications } from 'https://cdn.jsdelivr.net/npm/@capacitor/local-notifications@latest/dist/esm/index.js';
-        
+        import { App } from 'https://cdn.jsdelivr.net/npm/@capacitor/app@latest/dist/esm/index.js';
+        import { Capacitor } from 'https://cdn.jsdelivr.net/npm/@capacitor/core@latest/dist/esm/index.js';
+
+        // Expose plugins to global window object
+        window.FirebaseAuthentication = FirebaseAuthentication;
         window.PushNotifications = PushNotifications;
         window.LocalNotifications = LocalNotifications;
+        window.CapacitorApp = App;
+        window.Capacitor = Capacitor;
     </script>
 
     <style>
-        :root{--bg-dark:#0f172a;--bg-glass:rgba(15,23,42,0.85);--bg-glass-heavy:rgba(15,23,42,0.95);--accent-primary:#3b82f6;--accent-gradient:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);--msg-bot-bg:rgba(255,255,255,0.2);--msg-user-bg:linear-gradient(135deg,#3b82f6 0%,#1d4ed8 100%);--text-primary:#f8fafc;--text-secondary:#94a3b8;--border-color:rgba(255,255,255,0.1);--shadow-soft:0 4px 6px -1px rgba(0,0,0,0.1),0 2px 4px -1px rgba(0,0,0,0.06);--shadow-glow:0 0 15px rgba(59,130,246,0.3);--glass-blur:blur(16px);--radius-md:12px;--radius-lg:20px;--radius-full:999px;--font-en:'Inter',sans-serif;--font-ar:'Cairo',sans-serif}
-        *{box-sizing:border-box;outline:none;-webkit-tap-highlight-color:transparent}
-        html,body{height:100%;width:100%;margin:0;padding:0;overflow:hidden;background-color:var(--bg-dark);background-image:radial-gradient(at 0% 0%,rgba(59,130,246,0.15) 0px,transparent 50%),radial-gradient(at 100% 0%,rgba(168,85,247,0.15) 0px,transparent 50%),radial-gradient(at 100% 100%,rgba(59,130,246,0.15) 0px,transparent 50%);background-attachment:fixed;font-family:var(--font-en),var(--font-ar),sans-serif;color:var(--text-primary)}
-        .app-container{width:100%;max-width:500px;height:100%;margin:0 auto;display:flex;flex-direction:column;position:relative;box-shadow:0 0 50px rgba(0,0,0,0.5);z-index:10}
-        header{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;background:rgba(15,23,42,0.65);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border-color);z-index:20;flex-shrink:0;user-select:none;position:sticky;top:0}
-        .header-info{display:flex;align-items:center;gap:12px;cursor:pointer;flex:1}
-        .bot-avatar{width:45px;height:45px;border-radius:var(--radius-full);background:var(--accent-gradient);display:flex;justify-content:center;align-items:center;font-size:24px;flex-shrink:0;background-size:cover;background-position:center;border:2px solid rgba(255,255,255,0.2);box-shadow:0 2px 10px rgba(59,130,246,0.4);color:#fff;text-align:center;overflow:hidden}
-        .bot-name h2{font-size:17px;margin:0;font-weight:700;color:#fff;letter-spacing:0.3px;line-height:1.2}
-        .bot-status{font-size:12px;color:#e2e8f0;margin-top:4px;display:block;font-weight:600;letter-spacing:0.2px;text-shadow:0 2px 4px rgba(0,0,0,0.8);opacity:1;display:flex;align-items:center;gap:6px}
-        .sync-dot{width:8px;height:8px;background-color:#4ade80;border-radius:50%;box-shadow:0 0 0 0 rgba(74,222,128,0.7);animation:pulse-green 2s infinite}
-        @keyframes pulse-green{0%{transform:scale(0.95);box-shadow:0 0 0 0 rgba(74,222,128,0.7)}70%{transform:scale(1);box-shadow:0 0 0 6px rgba(74,222,128,0)}100%{transform:scale(0.95);box-shadow:0 0 0 0 rgba(74,222,128,0)}}
-        .header-actions{color:var(--text-secondary);font-size:26px;cursor:pointer;padding:5px;transition:color 0.2s}
-        .header-actions:hover{color:#fff}
-        .menu-dropdown{position:absolute;top:70px;width:280px;background:rgba(15,23,42,0.95);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 10px 30px rgba(0,0,0,0.5);display:none;flex-direction:column;z-index:100;overflow:hidden;animation:slideDown 0.25s cubic-bezier(0.16,1,0.3,1);padding:8px 0;left:auto;right:10px}
-        .menu-dropdown.active{display:flex}
-        .menu-item{padding:14px 20px;cursor:pointer;color:#cbd5e1;font-size:14px;font-weight:500;display:flex;align-items:center;gap:12px;transition:all 0.2s;direction:ltr}
-        .menu-item:hover{background:rgba(255,255,255,0.05);color:#fff;padding-left:25px}
-        .menu-item.danger{color:#f87171}
-        .menu-item.notif-toggle{color:#fbbf24}
-        .menu-item.install-btn{color:#4ade80;background:rgba(74,222,128,0.1)}
-        @keyframes slideDown{from{opacity:0;transform:translateY(-20px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}
-        #chat-area{flex:1;padding:20px 15px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;scroll-behavior:smooth;background-color:transparent;direction:ltr}
-        .message{width:fit-content;max-width:85%;padding:10px 16px;border-radius:var(--radius-lg);position:relative;font-size:15px;line-height:1.5;word-wrap:break-word;box-shadow:var(--shadow-soft);animation:messagePop 0.4s cubic-bezier(0.34,1.56,0.64,1);display:flex;flex-direction:column;align-items:flex-start}
-        .msg-bot{align-self:flex-start;background:var(--msg-bot-bg);color:var(--text-primary);border-bottom-left-radius:4px;border:1px solid rgba(255,255,255,0.1)}
-        .msg-user{align-self:flex-end;background:var(--msg-user-bg);color:#fff;border-bottom-right-radius:4px;box-shadow:0 4px 15px rgba(59,130,246,0.3)}
-        .timestamp{font-size:10px;color:rgba(255,255,255,0.5);text-align:right;align-self:flex-end;margin-top:6px;user-select:none}
-        .broadcast-msg{background:linear-gradient(145deg,rgba(234,179,8,0.15),rgba(234,179,8,0.05));border:1px solid rgba(234,179,8,0.4);border-left:3px solid #eab308;border-radius:var(--radius-md);padding:12px;margin-bottom:5px;box-shadow:0 4px 20px rgba(234,179,8,0.1);width:100%;box-sizing:border-box}
-        .broadcast-header{display:flex;align-items:center;gap:8px;color:#fde047;font-weight:700;margin-bottom:8px;font-size:14px}
-        .notif-display{background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.3);border-left:3px solid #f97316;padding:12px;border-radius:var(--radius-md);margin-top:5px;box-shadow:0 4px 15px rgba(0,0,0,0.1);width:100%;box-sizing:border-box}
-        .notif-header{display:flex;justify-content:space-between;font-size:11px;color:#f97316;margin-bottom:6px;font-weight:700;text-transform:uppercase}
-        .file-link-btn{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.1);padding:10px;border-radius:var(--radius-md);text-decoration:none;color:#fff;margin-top:5px;border:1px solid rgba(255,255,255,0.1);font-size:14px;cursor:pointer;transition:all 0.2s;box-shadow:inset 0 2px 4px rgba(255,255,255,0.05);width:100%;box-sizing:border-box}
-        .file-link-btn:hover{background:rgba(255,255,255,0.15);transform:translateY(-2px)}
-        #keyboard-area{background:rgba(15,23,42,0.65);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);padding:12px;display:grid;grid-template-columns:repeat(2,1fr);gap:10px;border-top:1px solid var(--border-color);min-height:0;max-height:45vh;overflow-y:auto;flex-shrink:0;padding-bottom:max(20px, env(safe-area-inset-bottom))}
-        .keyboard-btn{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:var(--text-primary);padding:14px 10px;border-radius:var(--radius-md);cursor:pointer;transition:all 0.2s;font-size:14px;font-weight:600;text-align:center;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;box-shadow:inset 0 1px 0 rgba(255,255,255,0.05);direction:ltr;text-align:center}
-        .keyboard-btn:hover{background:rgba(255,255,255,0.12);transform:translateY(-2px);border-color:rgba(255,255,255,0.2)}
-        .keyboard-btn:active{transform:scale(0.95);background:rgba(255,255,255,0.05)}
-        .keyboard-btn.back-btn{grid-column:span 2;background:rgba(0,0,0,0.2);border-color:rgba(255,255,255,0.05);color:var(--text-secondary);border:1px dashed rgba(255,255,255,0.2)}
-        @keyframes messagePop{from{opacity:0;transform:translateY(20px) scale(0.9)}to{opacity:1;transform:translateY(0) scale(1)}}
-        .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(5px);z-index:9999;display:none;align-items:center;justify-content:center}
-        .modal-overlay.active{display:flex;animation:fadeIn 0.3s ease}
-        .visual-alert-card,.ui-modal-box,.install-guide-box{background:#1e293b;border:1px solid var(--border-color);border-radius:var(--radius-lg);padding:24px;box-shadow:0 20px 50px rgba(0,0,0,0.5);animation:slideUpFade 0.4s cubic-bezier(0.16,1,0.3,1);max-width:90%;width:400px}
-        .visual-alert-card{background:linear-gradient(145deg,#1e293b,#0f172a);border:1px solid #3b82f6;text-align:center}
-        .alert-icon{font-size:50px;margin-bottom:15px;filter:drop-shadow(0 0 10px rgba(59,130,246,0.5))}
-        .alert-title{font-size:22px;font-weight:800;color:#fff;margin-bottom:10px}
-        .alert-body{font-size:16px;color:#cbd5e1;margin-bottom:25px;line-height:1.6;text-align:left}
-        .alert-btn,.ui-btn{background:var(--accent-gradient);color:#fff;border:none;padding:12px 30px;border-radius:var(--radius-full);font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 15px rgba(59,130,246,0.4);transition:transform 0.1s}
-        .alert-btn:active,.ui-btn:active{transform:scale(0.96)}
-        .install-step{margin-bottom:15px;display:flex;align-items:flex-start;gap:10px}
-        .install-icon{font-size:24px;background:rgba(255,255,255,0.1);padding:8px;border-radius:50%}
-        .install-text h4{margin:0 0 5px 0;color:#fff;font-size:15px}
-        .install-text p{margin:0;color:#94a3b8;font-size:13px;line-height:1.4}
-        .admin-modal{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);z-index:200;display:none;flex-direction:column;border-radius:0;max-width:100%;padding:0;overflow:hidden}
-        .admin-modal.active{display:flex}
-        .admin-nav-bar{background:rgba(30,41,59,0.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--border-color);padding:10px 15px;display:flex;gap:8px;overflow-x:auto;flex-shrink:0;scrollbar-width:none;z-index:10;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1)}
-        .admin-nav-bar::-webkit-scrollbar{display:none}
-        .nav-item{flex:1;min-width:70px;padding:10px 5px;text-align:center;color:var(--text-secondary);font-size:12px;font-weight:600;border-radius:var(--radius-md);cursor:pointer;transition:all 0.3s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:rgba(255,255,255,0.03)}
-        .nav-item span{font-size:18px}
-        .nav-item:hover{background:rgba(255,255,255,0.1);color:#fff}
-        .nav-item.active{background:var(--accent-primary);color:#fff;box-shadow:0 2px 10px rgba(59,130,246,0.4)}
-        .admin-content-wrapper{position:relative;flex:1;overflow:hidden;width:100%}
-        .tab-content{position:absolute;top:0;left:0;width:100%;height:100%;overflow-y:auto;padding:20px;opacity:0;pointer-events:none;transform:scale(0.98);transition:opacity 0.3s ease,transform 0.3s ease;display:none}
-        .tab-content.active{opacity:1;pointer-events:auto;transform:scale(1);display:block}
-        .form-group{margin-bottom:20px}
-        .form-label{display:block;margin-bottom:8px;color:#94a3b8;font-size:13px;font-weight:600}
-        .form-input,.form-textarea,.form-select{width:100%;padding:12px 14px;background:rgba(0,0,0,0.2);border:1px solid var(--border-color);border-radius:var(--radius-md);color:#fff;font-family:inherit;font-size:14px;transition:border-color 0.2s,box-shadow 0.2s}
-        .form-input:focus,.form-textarea:focus,.form-select:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.2);background:rgba(0,0,0,0.3)}
-        .form-textarea{height:90px;resize:vertical}
-        .admin-section-title{color:#60a5fa;margin:25px 0 15px 0;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:8px}
-        .btn-save,.btn-send{width:100%;padding:14px;background:var(--accent-gradient);color:#fff;border:none;border-radius:var(--radius-md);font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 15px rgba(59,130,246,0.3);transition:transform 0.2s}
-        .btn-save:hover,.btn-send:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(59,130,246,0.4)}
-        .btn-delete{width:100%;padding:12px;background:rgba(239,68,68,0.1);color:#f87171;border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius-md);font-weight:700;cursor:pointer;margin-top:10px}
-        .btn-delete:hover{background:rgba(239,68,68,0.2);color:#ef4444}
-        .data-list{display:flex;flex-direction:column;gap:10px;max-height:40vh;overflow-y:auto}
-        .data-item{background:rgba(255,255,255,0.03);padding:12px;border-radius:var(--radius-md);border:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center}
-        .data-name{cursor:pointer;font-weight:500;flex:1}
-        .btn-sm{padding:6px 10px;border-radius:6px;border:none;font-size:11px;cursor:pointer;font-weight:bold;margin-left:5px}
-        .btn-del{background:rgba(239,68,68,0.2);color:#f87171}
-        .btn-edit{background:rgba(59,130,246,0.2);color:#60a5fa}
-        #toast-container{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:10px;z-index:9998;width:90%;max-width:350px;pointer-events:none}
-        .toast{background:rgba(30,41,59,0.95);backdrop-filter:blur(10px);color:#fff;padding:14px 20px;border-radius:var(--radius-md);box-shadow:0 10px 30px rgba(0,0,0,0.4);font-size:14px;display:flex;align-items:center;gap:12px;animation:toastIn 0.4s cubic-bezier(0.175,0.885,0.32,1.275);pointer-events:auto;border:1px solid rgba(255,255,255,0.05)}
-        .toast.success{border-left:4px solid #22c55e}
-        .toast.error{border-left:4px solid #ef4444}
-        @keyframes toastIn{from{opacity:0;transform:translateY(30px) scale(0.9)}to{opacity:1;transform:translateY(0) scale(1)}}
-        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-        @keyframes slideUpFade{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
-        .typing-indicator{font-size:12px;color:var(--text-secondary);margin-left:15px;margin-bottom:10px;display:none;font-style:italic;opacity:0.7;font-weight:600;direction:ltr;text-align:left}
-        .typing-indicator.active{display:block}
-        .admin-header-top{display:flex;justify-content:space-between;align-items:center;background:rgba(15,23,42,0.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--border-color);z-index:20;padding:15px 20px}
-        .modal-title{font-size:20px;font-weight:700;color:#fff;display:flex;align-items:center;gap:10px}
-        .close-modal{font-size:32px;color:#64748b;cursor:pointer;line-height:1;transition:color 0.2s}
-        .close-modal:hover{color:#fff}
-        .manifest-preview{width:120px;height:120px;border-radius:24px;background:rgba(255,255,255,0.1);border:2px solid var(--border-color);margin:0 auto 20px auto;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;box-shadow:0 10px 20px rgba(0,0,0,0.3)}
-        .manifest-preview img{width:100%;height:100%;object-fit:cover}
-        .manifest-preview span{font-size:40px;color:rgba(255,255,255,0.2)}
-        #loading-screen{position:fixed;top:0;left:0;width:100%;height:100%;background-color:var(--bg-dark);background-image:radial-gradient(at 50% 50%, rgba(59,130,246,0.2) 0%, transparent 70%);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.5s ease}
-        .spinner-container{text-align:center;color:var(--text-primary)}
-        .spinner{width:50px;height:50px;border:5px solid rgba(59,130,246,0.3);border-top:5px solid var(--accent-primary);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 20px auto}
-        @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
-        .loading-text{font-family:var(--font-en);font-size:18px;font-weight:600;letter-spacing:1px;margin-top:20px;text-align:center}
-        .loading-text small{display:block;font-size:14px;color:var(--text-secondary);font-weight:400;margin-top:5px;opacity:0.8}
+        :root {
+            --bg-dark: #0f172a;
+            --bg-glass: rgba(15, 23, 42, 0.85);
+            --bg-glass-heavy: rgba(15, 23, 42, 0.95);
+            --accent-primary: #3b82f6;
+            --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            --msg-bot-bg: rgba(255, 255, 255, 0.1);
+            --msg-user-bg: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --glass-blur: blur(16px);
+            --radius-md: 12px;
+            --radius-lg: 20px;
+            --radius-full: 999px;
+            --font-en: 'Inter', sans-serif;
+            --font-ar: 'Cairo', sans-serif;
+        }
+
+        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+        
+        html, body {
+            height: 100%; width: 100%; margin: 0; padding: 0; overflow: hidden;
+            background-color: var(--bg-dark);
+            background-image: radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%), radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.15) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.15) 0px, transparent 50%);
+            background-attachment: fixed;
+            font-family: var(--font-en), var(--font-ar), sans-serif;
+            color: var(--text-primary);
+        }
+
+        .app-container {
+            width: 100%; max-width: 500px; height: 100%; margin: 0 auto;
+            display: flex; flex-direction: column; position: relative;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5); z-index: 10;
+        }
+
+        /* Header */
+        header {
+            padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;
+            background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--border-color);
+            z-index: 20; flex-shrink: 0; user-select: none; position: sticky; top: 0;
+        }
+
+        .header-info { display: flex; align-items: center; gap: 12px; cursor: pointer; flex: 1; }
+        
+        .bot-avatar {
+            width: 45px; height: 45px; border-radius: var(--radius-full); background: var(--accent-gradient);
+            display: flex; justify-content: center; align-items: center; font-size: 24px; flex-shrink: 0;
+            background-size: cover; background-position: center; border: 2px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 2px 10px rgba(59, 130, 246, 0.4); color: #fff; text-align: center; overflow: hidden;
+        }
+
+        .bot-name h2 { font-size: 17px; margin: 0; font-weight: 700; color: #fff; letter-spacing: 0.3px; line-height: 1.2; }
+        
+        .bot-status {
+            font-size: 12px; color: #e2e8f0; margin-top: 4px; display: block; font-weight: 600;
+            letter-spacing: 0.2px; display: flex; align-items: center; gap: 6px;
+        }
+
+        .sync-dot {
+            width: 8px; height: 8px; background-color: #4ade80; border-radius: 50%;
+            box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); animation: pulse-green 2s infinite;
+        }
+        @keyframes pulse-green { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(74, 222, 128, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); } }
+
+        .header-actions { color: var(--text-secondary); font-size: 26px; cursor: pointer; padding: 5px; transition: color 0.2s; }
+        .header-actions:hover { color: #fff; }
+
+        /* Dropdown Menu */
+        .menu-dropdown {
+            position: absolute; top: 70px; width: 280px; background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); display: none; flex-direction: column;
+            z-index: 100; overflow: hidden; animation: slideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            padding: 8px 0; left: auto; right: 10px;
+        }
+        .menu-dropdown.active { display: flex; }
+
+        .menu-item {
+            padding: 14px 20px; cursor: pointer; color: #cbd5e1; font-size: 14px; font-weight: 500;
+            display: flex; align-items: center; gap: 12px; transition: all 0.2s; direction: ltr;
+        }
+        .menu-item:hover { background: rgba(255, 255, 255, 0.05); color: #fff; padding-left: 25px; }
+        .menu-item.danger { color: #f87171; }
+        .menu-item.notif-toggle { color: #fbbf24; }
+        .menu-item.install-btn { color: #4ade80; background: rgba(74, 222, 128, 0.1); }
+
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+        /* Chat Area */
+        #chat-area {
+            flex: 1; padding: 20px 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
+            scroll-behavior: smooth; background-color: transparent; direction: ltr;
+        }
+
+        .message {
+            width: fit-content; max-width: 85%; padding: 10px 16px; border-radius: var(--radius-lg);
+            position: relative; font-size: 15px; line-height: 1.5; word-wrap: break-word;
+            box-shadow: var(--shadow-soft); animation: messagePop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            display: flex; flex-direction: column; align-items: flex-start;
+        }
+
+        .msg-bot { align-self: flex-start; background: var(--msg-bot-bg); color: var(--text-primary); border-bottom-left-radius: 4px; border: 1px solid rgba(255,255,255,0.1); }
+        .msg-user { align-self: flex-end; background: var(--msg-user-bg); color: #fff; border-bottom-right-radius: 4px; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3); }
+
+        .timestamp {
+            font-size: 10px; color: rgba(255, 255, 255, 0.5); text-align: right; align-self: flex-end;
+            margin-top: 6px; user-select: none;
+        }
+
+        /* Special Messages */
+        .broadcast-msg {
+            background: linear-gradient(145deg, rgba(234, 179, 8, 0.15), rgba(234, 179, 8, 0.05));
+            border: 1px solid rgba(234, 179, 8, 0.4); border-left: 3px solid #eab308;
+            border-radius: var(--radius-md); padding: 12px; margin-bottom: 5px;
+            box-shadow: 0 4px 20px rgba(234, 179, 8, 0.1); width: 100%; box-sizing: border-box;
+        }
+        .broadcast-header { display: flex; align-items: center; gap: 8px; color: #fde047; font-weight: 700; margin-bottom: 8px; font-size: 14px; }
+
+        .notif-display {
+            background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.3);
+            border-left: 3px solid #f97316; padding: 12px; border-radius: var(--radius-md);
+            margin-top: 5px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); width: 100%; box-sizing: border-box;
+        }
+        .notif-header { display: flex; justify-content: space-between; font-size: 11px; color: #f97316; margin-bottom: 6px; font-weight: 700; text-transform: uppercase; }
+
+        .file-link-btn {
+            display: flex; align-items: center; gap: 12px; background: rgba(255, 255, 255, 0.1);
+            padding: 10px; border-radius: var(--radius-md); text-decoration: none; color: #fff;
+            margin-top: 5px; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 14px;
+            cursor: pointer; transition: all 0.2s; box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.05);
+            width: 100%; box-sizing: border-box;
+        }
+        .file-link-btn:hover { background: rgba(255, 255, 255, 0.15); transform: translateY(-2px); }
+
+        /* Keyboard */
+        #keyboard-area {
+            background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            padding: 12px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+            border-top: 1px solid var(--border-color); min-height: 0; max-height: 45vh; overflow-y: auto;
+            flex-shrink: 0; padding-bottom: max(20px, env(safe-area-inset-bottom));
+        }
+
+        .keyboard-btn {
+            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-primary); padding: 14px 10px; border-radius: var(--radius-md);
+            cursor: pointer; transition: all 0.2s; font-size: 14px; font-weight: 600;
+            text-align: center; display: flex; align-items: center; justify-content: center;
+            position: relative; overflow: hidden; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            direction: ltr;
+        }
+        .keyboard-btn:hover { background: rgba(255, 255, 255, 0.12); transform: translateY(-2px); border-color: rgba(255, 255, 255, 0.2); }
+        .keyboard-btn:active { transform: scale(0.95); background: rgba(255, 255, 255, 0.05); }
+        .keyboard-btn.back-btn { grid-column: span 2; background: rgba(0, 0, 0, 0.2); border-color: rgba(255, 255, 255, 0.05); color: var(--text-secondary); border: 1px dashed rgba(255, 255, 255, 0.2); }
+
+        @keyframes messagePop { from { opacity: 0; transform: translateY(20px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+        /* Modals */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); z-index: 9999;
+            display: none; align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; animation: fadeIn 0.3s ease; }
+
+        .visual-alert-card, .ui-modal-box, .install-guide-box {
+            background: #1e293b; border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+            padding: 24px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1); max-width: 90%; width: 400px;
+        }
+
+        .visual-alert-card { background: linear-gradient(145deg, #1e293b, #0f172a); border: 1px solid #3b82f6; text-align: center; }
+        .alert-icon { font-size: 50px; margin-bottom: 15px; filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.5)); }
+        .alert-title { font-size: 22px; font-weight: 800; color: #fff; margin-bottom: 10px; }
+        .alert-body { font-size: 16px; color: #cbd5e1; margin-bottom: 25px; line-height: 1.6; text-align: left; }
+        
+        .alert-btn, .ui-btn {
+            background: var(--accent-gradient); color: #fff; border: none; padding: 12px 30px;
+            border-radius: var(--radius-full); font-size: 16px; font-weight: 700; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); transition: transform 0.1s;
+        }
+        .alert-btn:active, .ui-btn:active { transform: scale(0.96); }
+
+        /* Install Guide Steps */
+        .install-step { margin-bottom: 15px; display: flex; align-items: flex-start; gap: 10px; }
+        .install-icon { font-size: 24px; background: rgba(255, 255, 255, 0.1); padding: 8px; border-radius: 50%; }
+        .install-text h4 { margin: 0 0 5px 0; color: #fff; font-size: 15px; }
+        .install-text p { margin: 0; color: #94a3b8; font-size: 13px; line-height: 1.4; }
+
+        /* Admin Panel */
+        .admin-modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            z-index: 200; display: none; flex-direction: column; border-radius: 0;
+            max-width: 100%; padding: 0; overflow: hidden;
+        }
+        .admin-modal.active { display: flex; }
+
+        .admin-nav-bar {
+            background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color); padding: 10px 15px; display: flex;
+            gap: 8px; overflow-x: auto; flex-shrink: 0; scrollbar-width: none; z-index: 10;
+        }
+        .admin-nav-bar::-webkit-scrollbar { display: none; }
+        
+        .nav-item {
+            flex: 1; min-width: 70px; padding: 10px 5px; text-align: center; color: var(--text-secondary);
+            font-size: 12px; font-weight: 600; border-radius: var(--radius-md); cursor: pointer;
+            transition: all 0.3s; display: flex; flex-direction: column; align-items: center;
+            justify-content: center; gap: 4px; background: rgba(255, 255, 255, 0.03);
+        }
+        .nav-item span { font-size: 18px; }
+        .nav-item:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+        .nav-item.active { background: var(--accent-primary); color: #fff; box-shadow: 0 2px 10px rgba(59, 130, 246, 0.4); }
+
+        .admin-content-wrapper { position: relative; flex: 1; overflow: hidden; width: 100%; }
+        
+        .tab-content {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow-y: auto;
+            padding: 20px; opacity: 0; pointer-events: none; transform: scale(0.98);
+            transition: opacity 0.3s ease, transform 0.3s ease; display: none;
+        }
+        .tab-content.active { opacity: 1; pointer-events: auto; transform: scale(1); display: block; }
+
+        .form-group { margin-bottom: 20px; }
+        .form-label { display: block; margin-bottom: 8px; color: #94a3b8; font-size: 13px; font-weight: 600; }
+        
+        .form-input, .form-textarea, .form-select {
+            width: 100%; padding: 12px 14px; background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color); border-radius: var(--radius-md); color: #fff;
+            font-family: inherit; font-size: 14px; transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .form-input:focus, .form-textarea:focus, .form-select:focus {
+            border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); background: rgba(0, 0, 0, 0.3);
+        }
+        .form-textarea { height: 90px; resize: vertical; }
+
+        .admin-section-title {
+            color: #60a5fa; margin: 25px 0 15px 0; font-size: 14px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 8px;
+        }
+
+        .btn-save, .btn-send {
+            width: 100%; padding: 14px; background: var(--accent-gradient); color: #fff; border: none;
+            border-radius: var(--radius-md); font-size: 16px; font-weight: 700; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3); transition: transform 0.2s;
+        }
+        .btn-save:hover, .btn-send:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4); }
+        
+        .btn-delete {
+            width: 100%; padding: 12px; background: rgba(239, 68, 68, 0.1); color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.2); border-radius: var(--radius-md);
+            font-weight: 700; cursor: pointer; margin-top: 10px;
+        }
+        .btn-delete:hover { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+
+        /* Data List in Admin */
+        .data-list { display: flex; flex-direction: column; gap: 10px; max-height: 40vh; overflow-y: auto; }
+        .data-item {
+            background: rgba(255, 255, 255, 0.03); padding: 12px; border-radius: var(--radius-md);
+            border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;
+        }
+        .data-name { cursor: pointer; font-weight: 500; flex: 1; }
+        .btn-sm { padding: 6px 10px; border-radius: 6px; border: none; font-size: 11px; cursor: pointer; font-weight: bold; margin-left: 5px; }
+        .btn-del { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+        .btn-edit { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+
+        /* Toast */
+        #toast-container {
+            position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+            display: flex; flex-direction: column; gap: 10px; z-index: 9998;
+            width: 90%; max-width: 350px; pointer-events: none;
+        }
+        .toast {
+            background: rgba(30, 41, 59, 0.95); backdrop-filter: blur(10px); color: #fff;
+            padding: 14px 20px; border-radius: var(--radius-md); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            font-size: 14px; display: flex; align-items: center; gap: 12px;
+            animation: toastIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: auto; border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .toast.success { border-left: 4px solid #22c55e; }
+        .toast.error { border-left: 4px solid #ef4444; }
+
+        @keyframes toastIn { from { opacity: 0; transform: translateY(30px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUpFade { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .typing-indicator {
+            font-size: 12px; color: var(--text-secondary); margin-left: 15px; margin-bottom: 10px;
+            display: none; font-style: italic; opacity: 0.7; font-weight: 600; direction: ltr; text-align: left;
+        }
+        .typing-indicator.active { display: block; }
+
+        .admin-header-top {
+            display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color); z-index: 20; padding: 15px 20px;
+        }
+        .modal-title { font-size: 20px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 10px; }
+        .close-modal { font-size: 32px; color: #64748b; cursor: pointer; line-height: 1; transition: color 0.2s; }
+        .close-modal:hover { color: #fff; }
+
+        /* Manifest Preview */
+        .manifest-preview {
+            width: 120px; height: 120px; border-radius: 24px; background: rgba(255, 255, 255, 0.1);
+            border: 2px solid var(--border-color); margin: 0 auto 20px auto;
+            display: flex; align-items: center; justify-content: center; overflow: hidden;
+            position: relative; box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+        .manifest-preview img { width: 100%; height: 100%; object-fit: cover; }
+        .manifest-preview span { font-size: 40px; color: rgba(255, 255, 255, 0.2); }
+
+        /* Loading Screen */
+        #loading-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: var(--bg-dark); background-image: radial-gradient(at 50% 50%, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
+            z-index: 99999; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.5s ease;
+        }
+        .spinner-container { text-align: center; color: var(--text-primary); }
+        .spinner {
+            width: 50px; height: 50px; border: 5px solid rgba(59, 130, 246, 0.3);
+            border-top: 5px solid var(--accent-primary); border-radius: 50%;
+            animation: spin 1s linear infinite; margin: 0 auto 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .loading-text { font-family: var(--font-en); font-size: 18px; font-weight: 600; letter-spacing: 1px; margin-top: 20px; text-align: center; }
+        .loading-text small { display: block; font-size: 14px; color: var(--text-secondary); font-weight: 400; margin-top: 5px; opacity: 0.8; }
     </style>
 </head>
 <body>
-<div id="loading-screen">
-    <div class="spinner-container">
-        <div class="spinner"></div>
-        <div class="loading-text">Syncing from Cloud... <br><small>University Bot Pro</small></div>
-    </div>
-</div>
-<div class="app-container">
-    <header id="main-header">
-        <div class="header-info">
-            <div class="bot-avatar" id="header-avatar">🎓</div>
-            <div class="bot-name">
-                <h2 id="header-name">University Bot</h2>
-                <span class="bot-status" id="header-status"><div class="sync-dot"></div> Online</span>
-            </div>
-        </div>
-        <div class="header-actions" id="menu-btn">⋮</div>
-        <div class="menu-dropdown" id="menu-dropdown">
-            <div class="menu-item install-btn" id="pwa-install-btn" style="display:none;" onclick="window.installApp()">
-                <span>📲</span> <span>Install App</span>
-            </div>
-            <div class="menu-item" onclick="window.showInstallGuide()">
-                <span>📱</span> <span>How to Install (iOS/Android)</span>
-            </div>
-            <div class="menu-item notif-toggle" onclick="window.enableNotifications()">
-                <span>🔔</span> <span>Enable Notifications</span>
-            </div>
-            <div class="menu-item notif-test" onclick="window.testNotification()">
-                <span>🧪</span> <span>Test Notification</span>
-            </div>
-            <div class="menu-item google-auth" id="google-login-btn" onclick="window.handleMenuAuthClick()">
-                <span id="auth-icon">🌐</span> <span id="auth-text">Loading...</span>
-            </div>
-            <div class="menu-item" onclick="window.forceReload()">
-                <span>🔄</span> <span>Force Reload</span>
-            </div>
-            <div class="menu-item" onclick="window.clearChat()">
-                <span>🗑️</span> <span>Clear Chat</span>
-            </div>
-            <div class="menu-item danger" onclick="window.resetBot()">
-                <span>🏠</span> <span>Reset Bot</span>
-            </div>
-        </div>
-    </header>
-    <div id="chat-area"></div>
-    <div class="typing-indicator" id="typing">Syncing...</div>
-    <div id="keyboard-area"></div>
-</div>
-<div id="visual-alert-overlay" class="modal-overlay">
-    <div class="visual-alert-card">
-        <span class="alert-icon">🔔</span>
-        <div class="alert-title">New Messages</div>
-        <div class="alert-body" id="visual-alert-body">You have new messages...</div>
-        <button class="alert-btn" onclick="window.closeVisualAlert()">Open App</button>
-    </div>
-</div>
-<div id="install-guide-overlay" class="modal-overlay">
-    <div class="install-guide-box">
-        <div class="alert-title" style="text-align:center;">Install App 📲</div>
-        <p style="color:#cbd5e1;font-size:13px;text-align:center;margin-bottom:15px;">To receive notifications when app is closed, you must install it on your phone.</p>
-        <div id="guide-android" class="install-step">
-            <div class="install-icon">🤖</div>
-            <div class="install-text">
-                <h4>Android (Chrome)</h4>
-                <p>Tap <b>"Install App"</b> button in menu above, or look for "Add to Home Screen" in browser menu (⋮).</p>
-                <p style="color:#f87171;font-size:12px;margin-top:5px;">⚠️ <b>Important:</b> Disable Battery Optimization for Chrome in Settings to ensure notifications work in background!</p>
-            </div>
-        </div>
-        <div id="guide-ios" class="install-step">
-            <div class="install-icon">🍎</div>
-            <div class="install-text">
-                <h4>iPhone (Safari)</h4>
-                <p>Tap <b>Share</b> button (square with arrow) → Scroll down → Tap <b>"Add to Home Screen"</b>.</p>
-                <p style="color:#f87171;font-size:12px;margin-top:5px;">⚠️ <b>Note:</b> iOS is strict. Notifications might only appear when you open app or wake up screen.</p>
-            </div>
-        </div>
-        <button class="alert-btn" onclick="document.getElementById('install-guide-overlay').classList.remove('active')" style="width:100%;">Close</button>
-    </div>
-</div>
-<div id="ui-modal-overlay" class="modal-overlay">
-    <div class="ui-modal-box">
-        <div class="ui-modal-title" id="ui-modal-title" style="font-size:18px;font-weight:700;color:#fff;margin-bottom:10px;">Title</div>
-        <div class="ui-modal-body" id="ui-modal-body" style="font-size:15px;color:#cbd5e1;margin-bottom:20px;">Message</div>
-        <div id="ui-modal-input-container"></div>
-        <div class="ui-modal-actions" style="display:flex;gap:10px;justify-content:center;">
-            <button class="ui-btn" style="background:#334155;box-shadow:none;" onclick="window.closeUiModal()">Cancel</button>
-            <button class="ui-btn" id="ui-modal-confirm-btn">Confirm</button>
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+        <div class="spinner-container">
+            <div class="spinner"></div>
+            <div class="loading-text">Syncing from Cloud... <br><small>University Bot Pro</small></div>
         </div>
     </div>
-</div>
-<div id="toast-container"></div>
-<div class="admin-modal" id="admin-modal">
-    <div class="admin-header-top">
-        <div class="modal-title">⚙️ Bot Settings</div>
-        <div class="close-modal" onclick="window.closeAdminPanel()">×</div>
-    </div>
-    <div class="admin-nav-bar">
-        <div class="nav-item active" id="nav-0" onclick="window.switchAdminTab(0)">
-            <span>⚙️</span> <span>Settings</span>
-        </div>
-        <div class="nav-item" id="nav-1" onclick="window.switchAdminTab(1)">
-            <span>📢</span> <span>Notif</span>
-        </div>
-        <div class="nav-item" id="nav-2" onclick="window.switchAdminTab(2)">
-            <span>📣</span> <span>Broadcast</span>
-        </div>
-        <div class="nav-item" id="nav-3" onclick="window.switchAdminTab(3)">
-            <span>📂</span> <span>Data</span>
-        </div>
-        <div class="nav-item" id="nav-4" onclick="window.switchAdminTab(4)" style="display: none;">
-            <span>📲</span> <span>App</span>
-        </div>
-    </div>
-    <div class="admin-content-wrapper">
-        <div id="tab-settings" class="tab-content active">
-            <div style="text-align: left;margin-bottom: 20px;">
-                <span onclick="window.logoutUser()" style="cursor: pointer; color: #f87171; font-size: 13px; font-weight: 600;">Sign Out 🚪</span>
-            </div>
-            <div id="owner-typography-section" style="display: none;">
-                <div class="admin-section-title" style="color: #fbbf24;">Typography (Owner Only)</div>
-                <div class="form-group">
-                    <label class="form-label">English Font</label>
-                    <select id="select-en-font" class="form-select">
-                        <option value="'Inter', sans-serif">Inter</option>
-                        <option value="'Roboto', sans-serif">Roboto</option>
-                        <option value="'Poppins', sans-serif">Poppins</option>
-                        <option value="'Open Sans', sans-serif">Open Sans</option>
-                        <option value="'Montserrat', sans-serif">Montserrat</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Arabic Font</label>
-                    <select id="select-ar-font" class="form-select">
-                        <option value="'Cairo', sans-serif">Cairo</option>
-                        <option value="'Tajawal', sans-serif">Tajawal</option>
-                        <option value="'Almarai', sans-serif">Almarai</option>
-                        <option value="'Amiri', serif">Amiri</option>
-                        <option value="'El Messiri', cursive">El Messiri</option>
-                    </select>
-                </div>
-            </div>
-            <div class="admin-section-title">Appearance & Messages</div>
-            <div class="form-group"><label class="form-label">Bot Name</label><input type="text" id="admin-bot-name" class="form-input"></div>
-            <div class="form-group"><label class="form-label">Status</label><input type="text" id="admin-bot-status" class="form-input"></div>
-            <div class="form-group">
-                <label class="form-label">Bot Icon (Upload Image)</label>
-                <input type="file" id="admin-icon-upload" accept="image/*" style="color: #aaa; font-size: 12px; background: rgba(0,0,0,0.2); padding: 5px;">
-                <button class="btn-sm btn-del" id="admin-icon-remove" onclick="window.removeBotIcon()" style="display:inline-block; width:auto; margin-top:8px;">Remove Icon</button>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Chat Background (Upload Image)</label>
-                <input type="file" id="admin-bg-upload" accept="image/*" style="color: #aaa; font-size: 12px; background: rgba(0,0,0,0.2); padding: 5px;">
-                <button class="btn-sm btn-del" id="admin-bg-remove" onclick="window.removeChatBg()" style="display:inline-block; width:auto; margin-top:8px;">Remove BG</button>
-            </div>
-            <div class="form-group"><label class="form-label">Welcome Message</label><textarea id="admin-msg-welcome" class="form-textarea"></textarea></div>
-            <div class="form-group"><label class="form-label">Subject Select Text</label><textarea id="admin-msg-subject" class="form-textarea"></textarea></div>
-            <div class="form-group"><label class="form-label">Doctor Select Text</label><textarea id="admin-msg-doctor" class="form-textarea"></textarea></div>
-            <div class="form-group"><label class="form-label">Category List Text</label><textarea id="admin-msg-category" class="form-textarea"></textarea></div>
-            <div class="form-group"><label class="form-label">Back Texts</label><textarea id="admin-msg-backs" class="form-textarea" placeholder="Back Subject | Back Doctor | Back Main"></textarea></div>
-            <div id="owner-admin-section" style="display: none;">
-                <div class="admin-section-title" style="color: #fbbf24;">Manage Admins (Owner Only)</div>
-                <div class="form-group">
-                    <label class="form-label">Add Admin (Email)</label>
-                    <div style="display: flex; gap: 5px;">
-                        <input type="email" id="admin-add-input" class="form-input" placeholder="admin@example.com">
-                        <button class="btn-save" style="width: auto; margin: 0; padding: 0 20px;" onclick="window.addAdmin()">+</button>
-                    </div>
-                </div>
-                <div class="data-list" id="admin-list-container"></div>
-            </div>
-            <button class="btn-save" onclick="window.saveAdminSettings()">Save Settings</button>
-        </div>
-        <div id="tab-notifications" class="tab-content">
-            <div class="admin-section-title" style="color: #f97316;">Send Doctor Notification</div>
-            <p style="font-size:13px; color:#94a3b8; margin-bottom:20px;">This notification will be saved in "🔔 Notifications" and push alert to students.</p>
-            <div class="form-group">
-                <label class="form-label">Select Subject</label>
-                <select id="notif-subject-select" class="form-select" onchange="window.populateNotifDoctors()"></select>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Select Doctor</label>
-                <select id="notif-doctor-select" class="form-select" onchange="window.loadNotifPreview()"></select>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Notification Message</label>
-                <textarea id="notif-message-text" class="form-textarea" placeholder="Type important info here..."></textarea>
-            </div>
-            <button class="btn-send" onclick="window.sendDoctorNotification()">Send Notification</button>
-        </div>
-        <div id="tab-broadcast" class="tab-content">
-            <div class="admin-section-title" style="color: #eab308;">Broadcast (Batch Rep)</div>
-            <div style="background: rgba(234, 179, 8, 0.1); padding: 15px; border-radius: 12px; border: 1px solid rgba(234, 179, 8, 0.2); margin-bottom: 20px;">
-                <p style="font-size:13px; color:#e2e8f0;">This message will appear pinned at top of chat. <b>No system notification sent.</b></p>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Title</label>
-                <input type="text" id="broadcast-title" class="form-input" placeholder="e.g. Schedule Change">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Body</label>
-                <textarea id="broadcast-body" class="form-textarea" style="height: 100px;" placeholder="Details here..."></textarea>
-            </div>
-            <button class="btn-save" style="background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%); box-shadow: 0 4px 15px rgba(234, 179, 8, 0.3);" onclick="window.saveBroadcast()">Post Broadcast</button>
-            <button class="btn-delete" onclick="window.deleteBroadcast()">Delete Broadcast</button>
-            <div id="broadcast-preview" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;"></div>
-        </div>
-        <div id="tab-data" class="tab-content">
-            <div class="data-path" id="admin-data-path" style="font-size:13px; color:#94a3b8; margin-bottom:15px;">Home</div>
-            <div id="admin-data-view-container">
-                <div class="data-list" id="admin-list-items"></div>
-                <div class="form-group" style="background: rgba(59, 130, 246, 0.05); padding: 15px; border-radius: 12px; border: 1px solid rgba(59, 130, 246, 0.2);">
-                    <div style="font-weight:bold; margin-bottom:10px; color:#60a5fa;">Add New</div>
-                    <div class="form-group" style="margin-bottom:10px;">
-                        <input type="text" id="new-item-name" class="form-input" placeholder="Name...">
-                    </div>
-                    <div class="form-group" style="margin-bottom:0;" id="file-link-input-group" style="display:none;">
-                        <input type="text" id="new-item-link" class="form-input" placeholder="Link...">
-                    </div>
-                    <button class="btn-save" style="margin-top:10px; padding:10px;" onclick="window.addAdminDataItem()">Add</button>
-                </div>
-            </div>
-        </div>
-        <div id="tab-manifest" class="tab-content">
-            <div class="admin-section-title" style="color: #a855f7;">App Installation Settings</div>
-            <p style="font-size:13px; color:#94a3b8; margin-bottom:20px; text-align:center;">Customize how app looks when installed on home screen.</p>
-            <div class="manifest-preview" id="manifest-icon-preview">
-                <span>📲</span>
-            </div>
-            <div class="form-group">
-                <label class="form-label">App Name (Short)</label>
-                <input type="text" id="manifest-app-name" class="form-input" placeholder="UniBot">
-            </div>
-            <div class="form-group">
-                <label class="form-label">App Icon (Upload Image)</label>
-                <input type="file" id="manifest-icon-upload" accept="image/*" style="color: #aaa; font-size: 12px; background: rgba(0,0,0,0.2); padding: 5px;">
-                <button class="btn-sm btn-del" id="manifest-icon-remove" onclick="window.removeAppIcon()" style="display:none; width:auto; margin-top:8px;">Remove Icon</button>
-                <p style="font-size:11px; color:#64748b; margin-top:5px;">Image will be resized to 512x512 for sharp look.</p>
-            </div>
-            <p style="font-size:12px; color:#fbbf24; background:rgba(251, 191, 36, 0.1); padding:10px; border-radius:8px; text-align:center; border:1px solid rgba(251,191,36,0.2); margin-bottom:15px;">
-                ⚠️ Note: Changing icon/name requires users to <b>Uninstall</b> and <b>Re-install</b> app to see changes.
-            </p>
-            <button class="btn-save" style="background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%); box-shadow: 0 4px 15px rgba(168, 85, 247, 0.3);" onclick="window.saveAppManifest()">Update App Settings</button>
-        </div>
-    </div>
-</div>
-<script>
-    let deferredPrompt;
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        const btn = document.getElementById('pwa-install-btn');
-        if(btn) btn.style.display = 'flex';
-    });
-    window.installApp = function() {
-        document.getElementById('menu-dropdown').classList.remove('active');
-        if (deferredPrompt) {
-            deferredPrompt.prompt();
-            deferredPrompt.userChoice.then((choiceResult) => {
-                if (choiceResult.outcome === 'accepted') {
-                    showToast('App installed successfully!', 'success');
-                    document.getElementById('pwa-install-btn').style.display = 'none';
-                }
-                deferredPrompt = null;
-            });
-        } else {
-            showToast('Installation not available or already installed.', 'info');
-        }
-    };
-    window.showInstallGuide = function() {
-        document.getElementById('menu-dropdown').classList.remove('active');
-        document.getElementById('install-guide-overlay').classList.add('active');
-    }
-    function showToast(message, type = 'info') {
-        const container = document.getElementById('toast-container');
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        let icon = 'ℹ️';
-        if(type === 'success') icon = '✅';
-        if(type === 'error') icon = '❌';
-        toast.innerHTML = `<span>${icon} ${message}</span>`;
-        container.appendChild(toast);
-        setTimeout(() => {
-            toast.style.opacity = '0';
-            toast.style.transform = 'translateY(20px) scale(0.9)';
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
-    }
-    let currentModalCallback = null;
-    function showInputModal(title, placeholder, callback) {
-        const overlay = document.getElementById('ui-modal-overlay');
-        document.getElementById('ui-modal-title').innerText = title;
-        document.getElementById('ui-modal-body').style.display = 'none';
-        const inputContainer = document.getElementById('ui-modal-input-container');
-        inputContainer.style.display = 'block';
-        inputContainer.innerHTML = `<input type="text" class="ui-input-field" id="ui-modal-input" placeholder="${placeholder}" style="width:100%; padding:12px; background:rgba(0,0,0,0.2); border:1px solid #475569; color:#fff; border-radius:8px;">`;
-        currentModalCallback = callback;
-        overlay.classList.add('active');
-        setTimeout(() => document.getElementById('ui-modal-input').focus(), 100);
-    }
-    function showConfirmModal(title, message, callback) {
-        const overlay = document.getElementById('ui-modal-overlay');
-        document.getElementById('ui-modal-title').innerText = title;
-        document.getElementById('ui-modal-body').innerText = message;
-        document.getElementById('ui-modal-body').style.display = 'block';
-        document.getElementById('ui-modal-input-container').style.display = 'none';
-        currentModalCallback = callback;
-        overlay.classList.add('active');
-    }
-    function closeUiModal() {
-        document.getElementById('ui-modal-overlay').classList.remove('active');
-        currentModalCallback = null;
-    }
-    document.getElementById('ui-modal-confirm-btn').addEventListener('click', () => {
-        if (currentModalCallback) {
-            const inputEl = document.getElementById('ui-modal-input');
-            const val = inputEl ? inputEl.value : true;
-            currentModalCallback(val);
-        }
-        closeUiModal();
-    });
-    document.getElementById('ui-modal-overlay').addEventListener('click', (e) => {
-        if(e.target.id === 'ui-modal-overlay') closeUiModal();
-    });
-    const firebaseConfig = {
-      apiKey: "AIzaSyBUzcbZDAFS3rhjcp2-maEiSTmuBmUlGPQ",
-      authDomain: "libirary-b2424.firebaseapp.com",
-      projectId: "libirary-b2424",
-      storageBucket: "libirary-b2424.firebasestorage.app",
-      messagingSenderId: "371129360013",
-      appId: "1:371129360013:web:377ef70759204018a60cc4"
-    };
-    let auth;
-    let isAuthInitialized = false;
-    try { firebase.initializeApp(firebaseConfig); auth = firebase.auth(); } catch (e) {}
-    const OWNER_EMAIL = "peacemaker3050@gmail.com";
-    const JSONBIN_BIN_ID = "696e77bfae596e708fe71e9d";
-    const JSONBIN_ACCESS_KEY = "$2a$10$TunKuA35QdJp478eIMXxRunQfqgmhDY3YAxBXUXuV/JrgIFhU0Lf2";
-    const defaultDatabase = {
-        "Physics": { "doctors": ["Dr. Ahmed", "Dr. Mahmoud"], "Dr. Ahmed": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [{ name: "Chapter 1.pdf", link: "#" }], "🔔 Notifications": [] }, "Dr. Mahmoud": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] } },
-        "Chemistry": { "doctors": ["Dr. Saeed", "Dr. Mona"], "Dr. Saeed": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] }, "Dr. Mona": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] } },
-        "Mathematics": { "doctors": ["Dr. Kamel", "Dr. Samy"], "Dr. Kamel": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] }, "Dr. Samy": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] } }
-    };
-    const defaultConfig = {
-        botName: "University Library", botStatus: "Online", botIcon: "🎓", botImage: "", chatBgImage: "", typingSpeed: 600, admins: [], latestNotificationUpdate: 0, recentUpdates: [], 
-        generalBroadcast: { active: false, title: "", body: "", timestamp: 0 },
-        englishFont: "'Inter', sans-serif",
-        arabicFont: "'Cairo', sans-serif",
-        appName: "UniBot Pro",
-        appIcon: "", 
-        appVersion: 1,
-        welcomeMessage: "Welcome! 🎓<br>This is <b>{botName}</b>.<br>Please select a subject to begin.",
-        subjectPrompt: "<b>{name}</b>\nPlease select a Doctor 👇", doctorPrompt: "<b>{name}</b>\nSelect a section 👇",
-        categoryPrompt: "<b>{name}</b> list:", backSubject: "Back to <b>{name}</b> doctors:",
-        backDoctor: "Back to <b>{name}</b> sections:", backMain: "Back to Main Menu.", database: defaultDatabase
-    };
-    let CONFIG = { ...defaultConfig };
-    let database = CONFIG.database; 
-    let refreshInterval = null;
-    window.handleMenuAuthClick = function() {
-        document.getElementById('menu-dropdown').classList.remove('active');
-        if (!auth) return;
-        const user = auth.currentUser;
-        if (user) {
-            const email = user.email;
-            if (email === OWNER_EMAIL || (CONFIG.admins && CONFIG.admins.includes(email))) { 
-                openAdminPanel(); 
-            } else {
-                window.logoutUser();
-            }
-        } else {
-            // نستخدم Popup كما تنصح النصيحة، وهو بالفعل موجود
-            const provider = new firebase.auth.GoogleAuthProvider();
-            auth.signInWithPopup(provider).then((result) => { window.updateAuthUI(); showToast("Login Successful", "success"); }).catch((error) => { showToast("Login Failed: " + error.message, "error"); });
-        }
-    };
-    window.logoutUser = function() {
-        if (auth) { auth.signOut().then(() => { window.location.reload(); }).catch((error) => {}); }
-    };
-    function initFirebaseAuth() { 
-        if (!auth) return; 
-        // FIX: Use LOCAL Persistence to avoid "Missing Initial State" errors caused by SessionStorage loss
-        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-            .then(() => {
-                auth.onAuthStateChanged((user) => {
-                    isAuthInitialized = true; 
-                    window.updateAuthUI(); 
-                }); 
-            })
-            .catch((error) => {
-                console.error("Auth Persistence Error:", error);
-                auth.onAuthStateChanged((user) => { 
-                    isAuthInitialized = true;
-                    window.updateAuthUI(); 
-                });
-            });
-    }
-    window.updateAuthUI = function() {
-        if (!isAuthInitialized) return;
-        const loginBtn = document.getElementById('google-login-btn'); const loginText = document.getElementById('auth-text'); const loginIcon = document.getElementById('auth-icon');
-        const user = auth ? auth.currentUser : null;
-        if (user) {
-            const email = user.email;
-            if (email === OWNER_EMAIL) { loginText.innerText = "Admin Panel"; loginIcon.innerText = "⚙️"; loginBtn.classList.add('is-owner'); }
-            else if (CONFIG.admins && CONFIG.admins.includes(email)) { loginText.innerText = "Admin Panel"; loginIcon.innerText = "⚙️"; loginBtn.classList.add('is-admin'); }
-            else { 
-                loginText.innerText = "Sign Out"; 
-                loginIcon.innerText = "🚪"; 
-                loginBtn.classList.remove('is-owner', 'is-admin'); 
-            }
-        } else { loginText.innerText = "Sign In"; loginIcon.innerText = "🌐"; loginBtn.classList.remove('is-owner', 'is-admin'); }
-    }
-    
-    function compressImage(file, callback) {
-        const reader = new FileReader(); reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const img = new Image(); img.src = event.target.result;
-            img.onload = () => {
-                let width = img.width; let height = img.height; const MAX_SIZE = 150; 
-                if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
-                const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
-                const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.6); 
-                callback(dataUrl);
-            };
-            reader.onerror = (err) => { showToast("Error processing image", "error"); };
-        };
-    }
-    
-    function resizeAppIcon(file, callback) {
-        const reader = new FileReader(); reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const img = new Image(); img.src = event.target.result;
-            img.onload = () => {
-                const SIZE = 512; 
-                const canvas = document.createElement('canvas'); 
-                canvas.width = SIZE; canvas.height = SIZE;
-                const ctx = canvas.getContext('2d');
-                let sWidth = img.width; let sHeight = img.height; let sx = 0, sy = 0;
-                if (sWidth > sHeight) { sx = (sWidth - sHeight) / 2; sWidth = sHeight; } else { sy = (sHeight - sWidth) / 2; sHeight = sWidth; }
-                ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, SIZE, SIZE);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.4); 
-                callback(dataUrl);
-            };
-            reader.onerror = (err) => { showToast("Error processing icon", "error"); };
-        };
-    }
 
-    // UPDATED: Dynamic Manifest with Cache Busting
-    function updateDynamicManifest(name, iconData) {
-        const version = CONFIG.appVersion || 1;
-        const baseUrl = window.location.href.split('?')[0] || window.location.href;
-        const startUrl = `${baseUrl}?v=${version}`;
-        
-        const manifest = {
-            "name": name || CONFIG.botName,
-            "short_name": name || CONFIG.botName,
-            "start_url": startUrl,
-            "id": window.location.origin + "?v=" + version, 
-            "display": "standalone",
-            "background_color": "#0f172a",
-            "theme_color": "#0f172a",
-            "icons": []
+    <div class="app-container">
+        <header id="main-header">
+            <div class="header-info">
+                <div class="bot-avatar" id="header-avatar">🎓</div>
+                <div class="bot-name">
+                    <h2 id="header-name">University Bot</h2>
+                    <span class="bot-status" id="header-status"><div class="sync-dot"></div> Online</span>
+                </div>
+            </div>
+            <div class="header-actions" id="menu-btn">⋮</div>
+            <div class="menu-dropdown" id="menu-dropdown">
+                <div class="menu-item install-btn" id="pwa-install-btn" style="display:none;" onclick="window.installApp()">
+                    <span>📲</span> <span>Install App</span>
+                </div>
+                <div class="menu-item" onclick="window.showInstallGuide()">
+                    <span>📱</span> <span>How to Install (iOS/Android)</span>
+                </div>
+                <div class="menu-item notif-toggle" onclick="window.enableNotifications()">
+                    <span>🔔</span> <span>Enable Notifications</span>
+                </div>
+                <div class="menu-item notif-test" onclick="window.testNotification()">
+                    <span>🧪</span> <span>Test Notification</span>
+                </div>
+                <div class="menu-item google-auth" id="google-login-btn" onclick="window.handleMenuAuthClick()">
+                    <span id="auth-icon">🌐</span> <span id="auth-text">Loading...</span>
+                </div>
+                <div class="menu-item" onclick="window.forceReload()">
+                    <span>🔄</span> <span>Force Reload</span>
+                </div>
+                <div class="menu-item" onclick="window.clearChat()">
+                    <span>🗑️</span> <span>Clear Chat</span>
+                </div>
+                <div class="menu-item danger" onclick="window.resetBot()">
+                    <span>🏠</span> <span>Reset Bot</span>
+                </div>
+            </div>
+        </header>
+
+        <div id="chat-area"></div>
+        <div class="typing-indicator" id="typing">Syncing...</div>
+        <div id="keyboard-area"></div>
+    </div>
+
+    <!-- Visual Alert Modal -->
+    <div id="visual-alert-overlay" class="modal-overlay">
+        <div class="visual-alert-card">
+            <span class="alert-icon">🔔</span>
+            <div class="alert-title">New Messages</div>
+            <div class="alert-body" id="visual-alert-body">You have new messages...</div>
+            <button class="alert-btn" onclick="window.closeVisualAlert()">Open App</button>
+        </div>
+    </div>
+
+    <!-- Install Guide Modal -->
+    <div id="install-guide-overlay" class="modal-overlay">
+        <div class="install-guide-box">
+            <div class="alert-title" style="text-align:center;">Install App 📲</div>
+            <p style="color:#cbd5e1;font-size:13px;text-align:center;margin-bottom:15px;">To receive notifications when app is closed, you must install it on your phone.</p>
+            <div id="guide-android" class="install-step">
+                <div class="install-icon">🤖</div>
+                <div class="install-text">
+                    <h4>Android (Chrome)</h4>
+                    <p>Tap <b>"Install App"</b> button in menu above, or look for "Add to Home Screen" in browser menu (⋮).</p>
+                    <p style="color:#f87171;font-size:12px;margin-top:5px;">⚠️ <b>Important:</b> Disable Battery Optimization for Chrome in Settings to ensure notifications work in background!</p>
+                </div>
+            </div>
+            <div id="guide-ios" class="install-step">
+                <div class="install-icon">🍎</div>
+                <div class="install-text">
+                    <h4>iPhone (Safari)</h4>
+                    <p>Tap <b>Share</b> button (square with arrow) → Scroll down → Tap <b>"Add to Home Screen"</b>.</p>
+                    <p style="color:#f87171;font-size:12px;margin-top:5px;">⚠️ <b>Note:</b> iOS is strict. Notifications might only appear when you open app or wake up screen.</p>
+                </div>
+            </div>
+            <button class="alert-btn" onclick="document.getElementById('install-guide-overlay').classList.remove('active')" style="width:100%;">Close</button>
+        </div>
+    </div>
+
+    <!-- Input/Confirm Modal -->
+    <div id="ui-modal-overlay" class="modal-overlay">
+        <div class="ui-modal-box">
+            <div class="ui-modal-title" id="ui-modal-title" style="font-size:18px;font-weight:700;color:#fff;margin-bottom:10px;">Title</div>
+            <div class="ui-modal-body" id="ui-modal-body" style="font-size:15px;color:#cbd5e1;margin-bottom:20px;">Message</div>
+            <div id="ui-modal-input-container"></div>
+            <div class="ui-modal-actions" style="display:flex;gap:10px;justify-content:center;">
+                <button class="ui-btn" style="background:#334155;box-shadow:none;" onclick="window.closeUiModal()">Cancel</button>
+                <button class="ui-btn" id="ui-modal-confirm-btn">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <!-- Admin Panel -->
+    <div class="admin-modal" id="admin-modal">
+        <div class="admin-header-top">
+            <div class="modal-title">⚙️ Bot Settings</div>
+            <div class="close-modal" onclick="window.closeAdminPanel()">×</div>
+        </div>
+        <div class="admin-nav-bar">
+            <div class="nav-item active" id="nav-0" onclick="window.switchAdminTab(0)"><span>⚙️</span> <span>Settings</span></div>
+            <div class="nav-item" id="nav-1" onclick="window.switchAdminTab(1)"><span>📢</span> <span>Notif</span></div>
+            <div class="nav-item" id="nav-2" onclick="window.switchAdminTab(2)"><span>📣</span> <span>Broadcast</span></div>
+            <div class="nav-item" id="nav-3" onclick="window.switchAdminTab(3)"><span>📂</span> <span>Data</span></div>
+            <div class="nav-item" id="nav-4" onclick="window.switchAdminTab(4)" style="display: none;"><span>📲</span> <span>App</span></div>
+        </div>
+        <div class="admin-content-wrapper">
+            <!-- Settings Tab -->
+            <div id="tab-settings" class="tab-content active">
+                <div style="text-align: left;margin-bottom: 20px;">
+                    <span onclick="window.logoutUser()" style="cursor: pointer; color: #f87171; font-size: 13px; font-weight: 600;">Sign Out 🚪</span>
+                </div>
+                <div id="owner-typography-section" style="display: none;">
+                    <div class="admin-section-title" style="color: #fbbf24;">Typography (Owner Only)</div>
+                    <div class="form-group">
+                        <label class="form-label">English Font</label>
+                        <select id="select-en-font" class="form-select">
+                            <option value="'Inter', sans-serif">Inter</option>
+                            <option value="'Roboto', sans-serif">Roboto</option>
+                            <option value="'Poppins', sans-serif">Poppins</option>
+                            <option value="'Open Sans', sans-serif">Open Sans</option>
+                            <option value="'Montserrat', sans-serif">Montserrat</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Arabic Font</label>
+                        <select id="select-ar-font" class="form-select">
+                            <option value="'Cairo', sans-serif">Cairo</option>
+                            <option value="'Tajawal', sans-serif">Tajawal</option>
+                            <option value="'Almarai', sans-serif">Almarai</option>
+                            <option value="'Amiri', serif">Amiri</option>
+                            <option value="'El Messiri', cursive">El Messiri</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="admin-section-title">Appearance & Messages</div>
+                <div class="form-group"><label class="form-label">Bot Name</label><input type="text" id="admin-bot-name" class="form-input"></div>
+                <div class="form-group"><label class="form-label">Status</label><input type="text" id="admin-bot-status" class="form-input"></div>
+                <div class="form-group">
+                    <label class="form-label">Bot Icon (Upload Image)</label>
+                    <input type="file" id="admin-icon-upload" accept="image/*" style="color: #aaa; font-size: 12px; background: rgba(0,0,0,0.2); padding: 5px;">
+                    <button class="btn-sm btn-del" id="admin-icon-remove" onclick="window.removeBotIcon()" style="display:inline-block; width:auto; margin-top:8px;">Remove Icon</button>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Chat Background (Upload Image)</label>
+                    <input type="file" id="admin-bg-upload" accept="image/*" style="color: #aaa; font-size: 12px; background: rgba(0,0,0,0.2); padding: 5px;">
+                    <button class="btn-sm btn-del" id="admin-bg-remove" onclick="window.removeChatBg()" style="display:inline-block; width:auto; margin-top:8px;">Remove BG</button>
+                </div>
+                <div class="form-group"><label class="form-label">Welcome Message</label><textarea id="admin-msg-welcome" class="form-textarea"></textarea></div>
+                <div class="form-group"><label class="form-label">Subject Select Text</label><textarea id="admin-msg-subject" class="form-textarea"></textarea></div>
+                <div class="form-group"><label class="form-label">Doctor Select Text</label><textarea id="admin-msg-doctor" class="form-textarea"></textarea></div>
+                <div class="form-group"><label class="form-label">Category List Text</label><textarea id="admin-msg-category" class="form-textarea"></textarea></div>
+                <div class="form-group"><label class="form-label">Back Texts</label><textarea id="admin-msg-backs" class="form-textarea" placeholder="Back Subject | Back Doctor | Back Main"></textarea></div>
+                <div id="owner-admin-section" style="display: none;">
+                    <div class="admin-section-title" style="color: #fbbf24;">Manage Admins (Owner Only)</div>
+                    <div class="form-group">
+                        <label class="form-label">Add Admin (Email)</label>
+                        <div style="display: flex; gap: 5px;">
+                            <input type="email" id="admin-add-input" class="form-input" placeholder="admin@example.com">
+                            <button class="btn-save" style="width: auto; margin: 0; padding: 0 20px;" onclick="window.addAdmin()">+</button>
+                        </div>
+                    </div>
+                    <div class="data-list" id="admin-list-container"></div>
+                </div>
+                <button class="btn-save" onclick="window.saveAdminSettings()">Save Settings</button>
+            </div>
+
+            <!-- Notifications Tab -->
+            <div id="tab-notifications" class="tab-content">
+                <div class="admin-section-title" style="color: #f97316;">Send Doctor Notification</div>
+                <p style="font-size:13px; color:#94a3b8; margin-bottom:20px;">This notification will be saved in "🔔 Notifications" and push alert to students.</p>
+                <div class="form-group">
+                    <label class="form-label">Select Subject</label>
+                    <select id="notif-subject-select" class="form-select" onchange="window.populateNotifDoctors()"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Select Doctor</label>
+                    <select id="notif-doctor-select" class="form-select" onchange="window.loadNotifPreview()"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notification Message</label>
+                    <textarea id="notif-message-text" class="form-textarea" placeholder="Type important info here..."></textarea>
+                </div>
+                <button class="btn-send" onclick="window.sendDoctorNotification()">Send Notification</button>
+            </div>
+
+            <!-- Broadcast Tab -->
+            <div id="tab-broadcast" class="tab-content">
+                <div class="admin-section-title" style="color: #eab308;">Broadcast (Batch Rep)</div>
+                <div style="background: rgba(234, 179, 8, 0.1); padding: 15px; border-radius: 12px; border: 1px solid rgba(234, 179, 8, 0.2); margin-bottom: 20px;">
+                    <p style="font-size:13px; color:#e2e8f0;">This message will appear pinned at top of chat. <b>No system notification sent.</b></p>
+                </div>
+                <div class="form-group"><label class="form-label">Title</label><input type="text" id="broadcast-title" class="form-input" placeholder="e.g. Schedule Change"></div>
+                <div class="form-group"><label class="form-label">Body</label><textarea id="broadcast-body" class="form-textarea" style="height: 100px;" placeholder="Details here..."></textarea></div>
+                <button class="btn-save" style="background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%); box-shadow: 0 4px 15px rgba(234, 179, 8, 0.3);" onclick="window.saveBroadcast()">Post Broadcast</button>
+                <button class="btn-delete" onclick="window.deleteBroadcast()">Delete Broadcast</button>
+                <div id="broadcast-preview" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;"></div>
+            </div>
+
+            <!-- Data Tab -->
+            <div id="tab-data" class="tab-content">
+                <div class="data-path" id="admin-data-path" style="font-size:13px; color:#94a3b8; margin-bottom:15px;">Home</div>
+                <div id="admin-data-view-container">
+                    <div class="data-list" id="admin-list-items"></div>
+                    <div class="form-group" style="background: rgba(59, 130, 246, 0.05); padding: 15px; border-radius: 12px; border: 1px solid rgba(59, 130, 246, 0.2);">
+                        <div style="font-weight:bold; margin-bottom:10px; color:#60a5fa;">Add New</div>
+                        <div class="form-group" style="margin-bottom:10px;"><input type="text" id="new-item-name" class="form-input" placeholder="Name..."></div>
+                        <div class="form-group" style="margin-bottom:0;" id="file-link-input-group" style="display:none;"><input type="text" id="new-item-link" class="form-input" placeholder="Link..."></div>
+                        <button class="btn-save" style="margin-top:10px; padding:10px;" onclick="window.addAdminDataItem()">Add</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manifest/App Tab -->
+            <div id="tab-manifest" class="tab-content">
+                <div class="admin-section-title" style="color: #a855f7;">App Installation Settings</div>
+                <p style="font-size:13px; color:#94a3b8; margin-bottom:20px; text-align:center;">Customize how app looks when installed on home screen.</p>
+                <div class="manifest-preview" id="manifest-icon-preview"><span>📲</span></div>
+                <div class="form-group"><label class="form-label">App Name (Short)</label><input type="text" id="manifest-app-name" class="form-input" placeholder="UniBot"></div>
+                <div class="form-group">
+                    <label class="form-label">App Icon (Upload Image)</label>
+                    <input type="file" id="manifest-icon-upload" accept="image/*" style="color: #aaa; font-size: 12px; background: rgba(0,0,0,0.2); padding: 5px;">
+                    <button class="btn-sm btn-del" id="manifest-icon-remove" onclick="window.removeAppIcon()" style="display:none; width:auto; margin-top:8px;">Remove Icon</button>
+                    <p style="font-size:11px; color:#64748b; margin-top:5px;">Image will be resized to 512x512 for sharp look.</p>
+                </div>
+                <p style="font-size:12px; color:#fbbf24; background:rgba(251, 191, 36, 0.1); padding:10px; border-radius:8px; text-align:center; border:1px solid rgba(251,191,36,0.2); margin-bottom:15px;">
+                    ⚠️ Note: Changing icon/name requires users to <b>Uninstall</b> and <b>Re-install</b> app to see changes.
+                </p>
+                <button class="btn-save" style="background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%); box-shadow: 0 4px 15px rgba(168, 85, 247, 0.3);" onclick="window.saveAppManifest()">Update App Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration & Constants ---
+        const firebaseConfig = {
+          apiKey: "AIzaSyBUzcbZDAFS3rhjcp2-maEiSTmuBmUlGPQ",
+          authDomain: "libirary-b2424.firebaseapp.com",
+          projectId: "libirary-b2424",
+          storageBucket: "libirary-b2424.firebasestorage.app",
+          messagingSenderId: "371129360013",
+          appId: "1:371129360013:web:377ef70759204018a60cc4"
         };
-        if (iconData && iconData.length > 10) {
-            manifest.icons.push({ "src": iconData, "sizes": "512x512", "type": "image/jpeg" });
-        } else {
-            manifest.icons.push({ "src": "https://cdn-icons-png.flaticon.com/512/2991/2991148.png", "sizes": "512x512", "type": "image/png" });
-        }
-        
-        const stringManifest = JSON.stringify(manifest);
-        const blob = new Blob([stringManifest], {type: 'application/manifest+json'});
-        const manifestURL = URL.createObjectURL(blob);
-        
-        const link = document.querySelector('#dynamic-manifest');
-        if(link.href && link.href.startsWith('blob:')) {
-            URL.revokeObjectURL(link.href);
-        }
-        link.setAttribute('href', manifestURL);
-        
-        let appleLink = document.querySelector('link[rel="apple-touch-icon"]');
-        if (!appleLink) { appleLink = document.createElement('link'); appleLink.rel = 'apple-touch-icon'; document.head.appendChild(appleLink); }
-        appleLink.href = iconData && iconData.length > 10 ? iconData : "https://cdn-icons-png.flaticon.com/512/2991/2991148.png";
-    }
-    
-    function startSync() { if(refreshInterval) clearInterval(refreshInterval); refreshInterval = setInterval(fetchConfig, 15000); }
-    function stopSync() { if(refreshInterval) { clearInterval(refreshInterval); refreshInterval = null; } }
-    
-    function fetchConfig() {
-        return fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, { headers: { 'X-Master-Key': JSONBIN_ACCESS_KEY, 'X-Bin-Meta': 'false' } })
-        .then(res => { if (!res.ok) throw new Error("Failed"); return res.json(); })
-        .then(data => { 
-            CONFIG = { ...defaultConfig, ...data }; 
-            if (data.database) CONFIG.database = { ...data.database, ...defaultDatabase }; else CONFIG.database = defaultDatabase;
-            applyConfig(CONFIG); 
-            
-            if (CONFIG.recentUpdates && CONFIG.recentUpdates.length > 0) {
-                const seenIds = JSON.parse(localStorage.getItem('seenNotifIds') || '[]');
-                const newUpdates = CONFIG.recentUpdates.filter(u => !seenIds.includes(u.id));
-                if (newUpdates.length > 0) {
-                    const notifBody = newUpdates.map(u => `${u.doctor} (${u.subject})`).join('\n');
-                    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                        navigator.serviceWorker.controller.postMessage({ type: 'SYNCED_NOTIF_DOCTOR', body: notifBody, icon: CONFIG.appIcon || 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png' });
-                    }
-                    showVisualAlertWithBody(notifBody);
-                    const updatedSeenIds = [...seenIds, ...newUpdates.map(u => u.id)];
-                    localStorage.setItem('seenNotifIds', JSON.stringify(updatedSeenIds));
+        const OWNER_EMAIL = "peacemaker3050@gmail.com";
+        const JSONBIN_BIN_ID = "696e77bfae596e708fe71e9d";
+        const JSONBIN_ACCESS_KEY = "$2a$10$TunKuA35QdJp478eIMXxRunQfqgmhDY3YAxBXUXuV/JrgIFhU0Lf2";
+
+        const defaultDatabase = {
+            "Physics": { "doctors": ["Dr. Ahmed", "Dr. Mahmoud"], "Dr. Ahmed": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [{ name: "Chapter 1.pdf", link: "#" }], "🔔 Notifications": [] }, "Dr. Mahmoud": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] } },
+            "Chemistry": { "doctors": ["Dr. Saeed", "Dr. Mona"], "Dr. Saeed": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] }, "Dr. Mona": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] } },
+            "Mathematics": { "doctors": ["Dr. Kamel", "Dr. Samy"], "Dr. Kamel": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] }, "Dr. Samy": { "sections": ["📚 Lectures", "🔔 Notifications"], "📚 Lectures": [], "🔔 Notifications": [] } }
+        };
+
+        const defaultConfig = {
+            botName: "University Library", botStatus: "Online", botIcon: "🎓", botImage: "", chatBgImage: "", typingSpeed: 600, admins: [], latestNotificationUpdate: 0, recentUpdates: [], 
+            generalBroadcast: { active: false, title: "", body: "", timestamp: 0 },
+            englishFont: "'Inter', sans-serif", arabicFont: "'Cairo', sans-serif",
+            appName: "UniBot Pro", appIcon: "", appVersion: 1,
+            welcomeMessage: "Welcome! 🎓<br>This is <b>{botName}</b>.<br>Please select a subject to begin.",
+            subjectPrompt: "<b>{name}</b>\nPlease select a Doctor 👇", doctorPrompt: "<b>{name}</b>\nSelect a section 👇",
+            categoryPrompt: "<b>{name}</b> list:", backSubject: "Back to <b>{name}</b> doctors:",
+            backDoctor: "Back to <b>{name}</b> sections:", backMain: "Back to Main Menu.", database: defaultDatabase
+        };
+
+        // --- State Variables ---
+        let CONFIG = { ...defaultConfig };
+        let database = CONFIG.database;
+        let auth, isAuthInitialized = false;
+        let deferredPrompt;
+        let refreshInterval = null;
+        let currentSubject = null, currentDoctor = null, currentCategory = null;
+        let adminNavStack = [];
+        let currentAdminTab = 0;
+        let currentModalCallback = null;
+
+        // --- Initialization ---
+        try { firebase.initializeApp(firebaseConfig); auth = firebase.auth(); } catch (e) { console.log("Firebase already initialized or error:", e); }
+
+        // --- Service Worker (Blob Technique for Single File) ---
+        const swCode = `
+            const CACHE_NAME = 'uni-bot-cache-v1';
+            self.addEventListener('install', e => { e.waitUntil(self.skipWaiting()); });
+            self.addEventListener('activate', e => { e.waitUntil(self.clients.claim()); });
+            self.addEventListener('fetch', e => {
+                e.respondWith(
+                    caches.match(e.request).then(res => res || fetch(e.request))
+                );
+            });
+            self.addEventListener('message', (event) => {
+                if (event.data && event.data.type === 'TEST_NOTIF') {
+                    self.registration.showNotification("🧪 Test Successful", { 
+                        body: "Notifications are working.", 
+                        icon: event.data.icon || "https://cdn-icons-png.flaticon.com/512/2991/2991148.png" 
+                    });
                 }
-            }
-            if (CONFIG.generalBroadcast && CONFIG.generalBroadcast.active) { checkAndShowBroadcast(); }
-        });
-    }
-    function saveConfigToBin(newConfig) {
-        const btnSave = document.querySelector('.btn-save'); const originalText = btnSave ? btnSave.innerText : "Saving...";
-        if(btnSave) btnSave.innerText = "Saving...";
-        fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_ACCESS_KEY }, body: JSON.stringify(newConfig) })
-        .then(res => { if (!res.ok) throw new Error("Save failed"); showToast("✅ Saved Successfully", "success"); database = newConfig.database; CONFIG.database = { ...newConfig.database, ...defaultDatabase }; database = CONFIG.database; if(btnSave) btnSave.innerText = originalText; })
-        .catch(err => { showToast("❌ Error: " + err.message, "error"); if(btnSave) btnSave.innerText = originalText; });
-    }
-    function applyConfig(newConfig) {
-        CONFIG = newConfig; database = CONFIG.database; 
-        document.getElementById('header-name').innerText = CONFIG.botName; 
-        document.getElementById('header-status').innerText = "Online"; 
-        
-        const avatarEl = document.getElementById('header-avatar');
-        if (CONFIG.botImage && CONFIG.botImage.trim().length > 50) { 
-            avatarEl.style.backgroundImage = `url('${CONFIG.botImage}')`; 
-            avatarEl.style.backgroundSize = "cover"; 
-            avatarEl.innerText = ""; 
-        } else { 
-            avatarEl.style.backgroundImage = "none"; 
-            avatarEl.innerText = CONFIG.botIcon; 
-        }
+                if (event.data && event.data.type === 'SYNCED_NOTIF_DOCTOR') {
+                    self.registration.showNotification("📢 New Update Available", { 
+                        body: event.data.body, 
+                        icon: event.data.icon || "https://cdn-icons-png.flaticon.com/512/2991/2991148.png" 
+                    });
+                }
+            });
+        `;
+        const swBlob = new Blob([swCode], {type: 'application/javascript'});
+        const swUrl = URL.createObjectURL(swBlob);
+
+        // --- UI Logic ---
         const chatArea = document.getElementById('chat-area');
-        if (CONFIG.chatBgImage && CONFIG.chatBgImage.trim().length > 50) { chatArea.style.backgroundImage = `url('${CONFIG.chatBgImage}')`; chatArea.style.backgroundSize = "cover"; } else { chatArea.style.backgroundImage = "none"; }
-        
-        const enFont = CONFIG.englishFont || "'Inter', sans-serif";
-        const arFont = CONFIG.arabicFont || "'Cairo', sans-serif";
-        document.documentElement.style.setProperty('--font-en', enFont);
-        document.documentElement.style.setProperty('--font-ar', arFont);
+        const keyboardArea = document.getElementById('keyboard-area');
+        const typingIndicator = document.getElementById('typing');
+        const menuBtn = document.getElementById('menu-btn');
+        const menuDropdown = document.getElementById('menu-dropdown');
 
-        if(CONFIG.appName || CONFIG.appIcon) {
-            updateDynamicManifest(CONFIG.appName, CONFIG.appIcon);
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            let icon = 'ℹ️';
+            if(type === 'success') icon = '✅';
+            if(type === 'error') icon = '❌';
+            toast.innerHTML = `<span>${icon} ${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(20px) scale(0.9)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
         }
 
-        window.updateAuthUI(); renderKeyboard(); checkAndShowBroadcast();
-    }
-    function checkAndShowBroadcast() {
-        const existingBroadcast = document.getElementById('app-broadcast-msg');
-        if (existingBroadcast) existingBroadcast.remove();
-        if (CONFIG.generalBroadcast && CONFIG.generalBroadcast.active) {
-            const broadcastHTML = `
-                <div id="app-broadcast-msg" class="message msg-bot broadcast-msg" onclick="window.markBroadcastRead()">
-                    <div class="broadcast-header">
-                        <span>📣</span> <span>Message from Batch Rep</span>
-                    </div>
-                    <div><b>${CONFIG.generalBroadcast.title}</b></div>
-                    <div style="margin-top:5px; font-size:14px; line-height:1.4;">${CONFIG.generalBroadcast.body}</div>
-                    <span class="timestamp">${new Date(parseInt(CONFIG.generalBroadcast.timestamp)).toLocaleString()}</span>
-                </div>
-            `;
-            const chatArea = document.getElementById('chat-area');
-            chatArea.insertAdjacentHTML('afterbegin', broadcastHTML);
+        function showInputModal(title, placeholder, callback) {
+            const overlay = document.getElementById('ui-modal-overlay');
+            document.getElementById('ui-modal-title').innerText = title;
+            document.getElementById('ui-modal-body').style.display = 'none';
+            const inputContainer = document.getElementById('ui-modal-input-container');
+            inputContainer.style.display = 'block';
+            inputContainer.innerHTML = `<input type="text" class="ui-input-field" id="ui-modal-input" placeholder="${placeholder}" style="width:100%; padding:12px; background:rgba(0,0,0,0.2); border:1px solid #475569; color:#fff; border-radius:8px;">`;
+            currentModalCallback = callback;
+            overlay.classList.add('active');
+            setTimeout(() => document.getElementById('ui-modal-input').focus(), 100);
         }
-    }
-    window.markBroadcastRead = function() { };
-    function replacePlaceholders(text, name) { let res = text || ""; if (name) res = res.replace(/{name}/g, name); res = res.replace(/{botName}/g, CONFIG.botName); return res; }
-    function showVisualAlertWithBody(bodyText) {
-        const overlay = document.getElementById('visual-alert-overlay'); if (overlay.classList.contains('active')) return;
-        document.getElementById('visual-alert-body').innerText = bodyText; overlay.classList.add('active');
-        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-    }
-    window.closeVisualAlert = function() { document.getElementById('visual-alert-overlay').classList.remove('active'); };
-    function hasAdminAccess() { const user = auth.currentUser; if (!user) return false; const email = user.email; return email === OWNER_EMAIL || (CONFIG.admins && CONFIG.admins.includes(email)); }
-    window.populateNotifSubjects = function() {
-        const select = document.getElementById('notif-subject-select'); select.innerHTML = '<option value="">-- Select Subject --</option>';
-        const subjects = Object.keys(database); subjects.forEach(sub => { const opt = document.createElement('option'); opt.value = sub; opt.innerText = sub; select.appendChild(opt); });
-    };
-    window.populateNotifDoctors = function() {
-        const subject = document.getElementById('notif-subject-select').value; const docSelect = document.getElementById('notif-doctor-select'); docSelect.innerHTML = '<option value="">-- Select Doctor --</option>';
-        if(subject && database[subject] && database[subject].doctors) {
-            database[subject].doctors.forEach(doc => { const opt = document.createElement('option'); opt.value = doc; opt.innerText = doc; docSelect.appendChild(opt); });
-        } window.loadNotifPreview();
-    };
-    window.sendDoctorNotification = function() {
-        if (!hasAdminAccess()) return showToast("❌ Unauthorized Access.", "error");
-        const subject = document.getElementById('notif-subject-select').value; const doctor = document.getElementById('notif-doctor-select').value; const message = document.getElementById('notif-message-text').value.trim();
-        if(!subject || !doctor || !message) return showToast("Please fill all fields", "error");
-        const timestamp = new Date().toLocaleString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-        const fullDate = Date.now(); const updateId = fullDate.toString() + "_" + Math.random().toString(36).substr(2,5);
-        if (!database[subject][doctor].sections) database[subject][doctor].sections = [];
-        if (!database[subject][doctor].sections.includes("🔔 Notifications")) database[subject][doctor].sections.unshift("🔔 Notifications");
-        if (!database[subject][doctor]["🔔 Notifications"]) database[subject][doctor]["🔔 Notifications"] = [];
-        database[subject][doctor]["🔔 Notifications"].unshift({ id: updateId, name: message, date: timestamp, type: "notif", fullDate: fullDate });
-        if (!CONFIG.recentUpdates) CONFIG.recentUpdates = [];
-        CONFIG.recentUpdates.unshift({ id: updateId, doctor: doctor, subject: subject, timestamp: fullDate });
-        if (CONFIG.recentUpdates.length > 5) CONFIG.recentUpdates = CONFIG.recentUpdates.slice(0, 5);
-        CONFIG.latestNotificationUpdate = fullDate; CONFIG.database = database;
-        const saveBtn = document.querySelector('#tab-notifications .btn-send'); saveBtn.innerText = "Sending..."; saveBtn.disabled = true;
-        fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_ACCESS_KEY }, body: JSON.stringify(CONFIG) })
-        .then(res => { if (!res.ok) throw new Error("Send failed"); showToast("✅ Notification Sent", "success"); document.getElementById('notif-message-text').value = ""; saveBtn.innerText = "Send Notification"; saveBtn.disabled = false; fetchConfig(); })
-        .catch(err => { showToast("❌ Error: " + err.message, "error"); saveBtn.innerText = "Send Notification"; saveBtn.disabled = false; });
-    };
-    window.loadNotifPreview = function() { };
-    window.saveBroadcast = function() {
-        const user = auth.currentUser; const email = user ? user.email : null; const isOwner = email === OWNER_EMAIL; let allowed = isOwner;
-        if (!allowed) { showInputModal("Verify Identity", "Password (Owner)", (pass) => { if (pass === "1234") proceedBroadcastSave(); else showToast("Wrong Password", "error"); }); return; } proceedBroadcastSave();
-    };
-    function proceedBroadcastSave() {
-        const title = document.getElementById('broadcast-title').value.trim(); const body = document.getElementById('broadcast-body').value.trim();
-        if(!title || !body) return showToast("Please enter title and body", "error");
-        CONFIG.generalBroadcast = { active: true, title: title, body: body, timestamp: Date.now() };
-        const saveBtn = document.querySelector('#tab-broadcast .btn-save'); saveBtn.innerText = "Posting...";
-        fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_ACCESS_KEY }, body: JSON.stringify(CONFIG) })
-        .then(res => { if (!res.ok) throw new Error("Save failed"); showToast("✅ Broadcast Posted", "success"); saveBtn.innerText = "Post Broadcast"; checkAndShowBroadcast(); fetchConfig(); })
-        .catch(err => { showToast("❌ Error: " + err.message, "error"); saveBtn.innerText = "Post Broadcast"; });
-    }
-    window.deleteBroadcast = function() {
-        const user = auth.currentUser; const email = user ? user.email : null; const isOwner = email === OWNER_EMAIL; let allowed = isOwner;
-        if (!allowed) { showInputModal("Verify Identity", "Password (Owner)", (pass) => { if (pass === "1234") proceedBroadcastDelete(); else showToast("Wrong Password", "error"); }); return; } proceedBroadcastDelete();
-    };
-    function proceedBroadcastDelete() {
-        showConfirmModal("Confirm Delete", "Are you sure you want to delete this broadcast?", (confirmed) => {
-            if (!confirmed) return; CONFIG.generalBroadcast = { active: false, title: "", body: "", timestamp: 0 };
-            document.getElementById('broadcast-title').value = ""; document.getElementById('broadcast-body').value = "";
-            fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_ACCESS_KEY }, body: JSON.stringify(CONFIG) })
-            .then(res => { if (!res.ok) throw new Error("Delete failed"); showToast("✅ Deleted Successfully", "success"); const existing = document.getElementById('app-broadcast-msg'); if(existing) existing.remove(); })
-            .catch(err => showToast("❌ Error: " + err.message, "error"));
-        });
-    }
-    window.testNotification = function() {
-        document.getElementById('menu-dropdown').classList.remove('active');
-        if (!('Notification' in window)) { showToast("Browser doesn't support notifications.", "error"); return; }
-        Notification.requestPermission().then(permission => {
-            if (permission === 'granted') {
-                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                    navigator.serviceWorker.controller.postMessage({ type: 'TEST_NOTIF', icon: CONFIG.appIcon || 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png' });
-                    showToast("Test notification sent...", "success");
-                } else {
-                    new Notification("🧪 Test Successful", { body: "Notifications are working.", icon: CONFIG.appIcon || 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png', vibrate: [200, 100, 200] });
-                    showToast("Test notification sent...", "success");
-                }
-            } else { showToast("Permission denied.", "error"); }
-        });
-    };
-    let currentSubject = null, currentDoctor = null, currentCategory = null;
-    const chatArea = document.getElementById('chat-area'); const keyboardArea = document.getElementById('keyboard-area');
-    const typingIndicator = document.getElementById('typing'); const menuBtn = document.getElementById('menu-btn'); const menuDropdown = document.getElementById('menu-dropdown');
-    const adminNameInput = document.getElementById('admin-bot-name'); const adminStatusInput = document.getElementById('admin-bot-status');
-    const adminIconUpload = document.getElementById('admin-icon-upload'); const adminIconRemove = document.getElementById('admin-icon-remove');
-    const adminBgUpload = document.getElementById('admin-bg-upload'); const adminBgRemove = document.getElementById('admin-bg-remove');
-    const adminAddInput = document.getElementById('admin-add-input'); const adminListContainer = document.getElementById('admin-list-container');
-    const respWelcome = document.getElementById('admin-msg-welcome'); const respSubject = document.getElementById('admin-msg-subject');
-    const respDoctor = document.getElementById('admin-msg-doctor'); const respCategory = document.getElementById('admin-msg-category'); const respBacks = document.getElementById('admin-msg-backs');
-    const appNameInput = document.getElementById('manifest-app-name');
-    const appIconUpload = document.getElementById('manifest-icon-upload');
-    const appIconRemove = document.getElementById('manifest-icon-remove');
-    const appIconPreview = document.getElementById('manifest-icon-preview');
-    const selectEnFont = document.getElementById('select-en-font');
-    const selectArFont = document.getElementById('select-ar-font');
 
-    function addMessage(content, sender, isHtml = false) {
-        const msgDiv = document.createElement('div'); msgDiv.classList.add('message', sender === 'bot' ? 'msg-bot' : 'msg-user');
-        if (isHtml) msgDiv.innerHTML = content; else msgDiv.innerText = content;
-        const textContent = msgDiv.innerText || "";
-        if (isHtml) { const contentContainer = document.createElement('div'); contentContainer.innerHTML = content; Array.from(contentContainer.children).forEach(child => child.style.margin = "0"); msgDiv.innerHTML = ''; msgDiv.appendChild(contentContainer); }
-        const timeSpan = document.createElement('span'); timeSpan.classList.add('timestamp'); timeSpan.innerText = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); msgDiv.appendChild(timeSpan); chatArea.appendChild(msgDiv); scrollToBottom();
-    }
-    function scrollToBottom() { setTimeout(() => { chatArea.scrollTop = chatArea.scrollHeight; }, 0); }
-    function botReply(text, isHtml = false) { typingIndicator.classList.add('active'); scrollToBottom(); setTimeout(() => { typingIndicator.classList.remove('active'); addMessage(text, 'bot', isHtml); }, CONFIG.typingSpeed); }
-    function createButton(text, onClick, isBack = false) { const btn = document.createElement('div'); btn.classList.add('keyboard-btn'); if(isBack) btn.classList.add('back-btn'); btn.innerText = text; btn.onclick = onClick; return btn; }
-    menuBtn.addEventListener('click', (e) => { e.stopPropagation(); menuDropdown.classList.toggle('active'); });
-    document.addEventListener('click', (e) => { if (!menuDropdown.contains(e.target) && e.target !== menuBtn) menuDropdown.classList.remove('active'); });
-    window.clearChat = function() { chatArea.innerHTML = ''; resetStateVariables(); menuDropdown.classList.remove('active'); setTimeout(() => { botReply("Chat cleared. 🗑️<br>Welcome back! Choose a subject 👇", true); }, 100); }
-    window.resetBot = function() { resetStateVariables(); menuDropdown.classList.remove('active'); addMessage("🏠 Reset Bot", 'user'); botReply("Bot restarted. Please select a subject 👇", true); }
-    window.enableNotifications = function() {
-        menuDropdown.classList.remove('active'); if (!('Notification' in window)) { showToast("Browser doesn't support notifications.", "error"); return; }
-        Notification.requestPermission().then(permission => { if (permission === 'granted') { showToast("✅ Notifications Enabled", "success"); new Notification("Enabled", { body: "You will now receive updates." }); } else { showToast("❌ Permission Denied", "error"); } });
-    };
-    window.forceReload = function() {
-        document.getElementById('menu-dropdown').classList.remove('active');
-        showConfirmModal("Force Reload", "Do you want to fully reload app?", (confirm) => {
-            if(confirm) {
-                window.location.href = window.location.href.split('?')[0] + '?t=' + new Date().getTime();
+        function showConfirmModal(title, message, callback) {
+            const overlay = document.getElementById('ui-modal-overlay');
+            document.getElementById('ui-modal-title').innerText = title;
+            document.getElementById('ui-modal-body').innerText = message;
+            document.getElementById('ui-modal-body').style.display = 'block';
+            document.getElementById('ui-modal-input-container').style.display = 'none';
+            currentModalCallback = callback;
+            overlay.classList.add('active');
+        }
+
+        function closeUiModal() {
+            document.getElementById('ui-modal-overlay').classList.remove('active');
+            currentModalCallback = null;
+        }
+
+        document.getElementById('ui-modal-confirm-btn').addEventListener('click', () => {
+            if (currentModalCallback) {
+                const inputEl = document.getElementById('ui-modal-input');
+                const val = inputEl ? inputEl.value : true;
+                currentModalCallback(val);
             }
+            closeUiModal();
         });
-    };
-    let adminNavStack = [];
-    let currentAdminTab = 0; 
+        document.getElementById('ui-modal-overlay').addEventListener('click', (e) => { if(e.target.id === 'ui-modal-overlay') closeUiModal(); });
 
-    function openAdminPanel() {
-        stopSync(); 
-        adminNameInput.value = CONFIG.botName; adminStatusInput.value = CONFIG.botStatus;
-        adminIconUpload.value = ""; if(CONFIG.botImage) adminIconRemove.style.display = 'inline-block'; else adminIconRemove.style.display = 'none';
-        adminBgUpload.value = ""; if(CONFIG.chatBgImage) adminBgRemove.style.display = 'inline-block'; else adminBgRemove.style.display = 'none';
-        respWelcome.value = CONFIG.welcomeMessage; respSubject.value = CONFIG.subjectPrompt; respDoctor.value = CONFIG.doctorPrompt; respCategory.value = CONFIG.categoryPrompt;
-        const backs = [CONFIG.backSubject, CONFIG.backDoctor, CONFIG.backMain]; respBacks.value = backs.join(' | ');
-        const ownerSection = document.getElementById('owner-admin-section');
-        const typoSection = document.getElementById('owner-typography-section');
-        const appTabNav = document.getElementById('nav-4'); 
-        const user = auth.currentUser;
-        const isOwner = (user && user.email === OWNER_EMAIL);
-
-        if (isOwner) { 
-            ownerSection.style.display = 'block'; 
-            typoSection.style.display = 'block';
-            renderAdminList(); 
-            if(appTabNav) appTabNav.style.display = 'flex'; 
-        } else { 
-            ownerSection.style.display = 'none'; 
-            typoSection.style.display = 'none';
-            if(appTabNav) appTabNav.style.display = 'none'; 
+        // --- Chat & Bot Logic ---
+        function addMessage(content, sender, isHtml = false) {
+            const msgDiv = document.createElement('div'); 
+            msgDiv.classList.add('message', sender === 'bot' ? 'msg-bot' : 'msg-user');
+            if (isHtml) msgDiv.innerHTML = content; else msgDiv.innerText = content;
+            
+            const timeSpan = document.createElement('span'); 
+            timeSpan.classList.add('timestamp'); 
+            timeSpan.innerText = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); 
+            msgDiv.appendChild(timeSpan); 
+            chatArea.appendChild(msgDiv); 
+            scrollToBottom();
         }
 
-        if(CONFIG.generalBroadcast && CONFIG.generalBroadcast.active) { document.getElementById('broadcast-title').value = CONFIG.generalBroadcast.title; document.getElementById('broadcast-body').value = CONFIG.generalBroadcast.body; } else { document.getElementById('broadcast-title').value = ""; document.getElementById('broadcast-body').value = ""; }
-        window.populateNotifSubjects(); renderAdminDataView();
-        appNameInput.value = CONFIG.appName || CONFIG.botName;
-        appIconUpload.value = "";
-        
-        if(CONFIG.appIcon && CONFIG.appIcon.length > 10) {
-            document.getElementById('manifest-icon-remove').style.display = 'inline-block';
-        } else {
-            document.getElementById('manifest-icon-remove').style.display = 'none';
+        function scrollToBottom() { setTimeout(() => { chatArea.scrollTop = chatArea.scrollHeight; }, 0); }
+
+        function botReply(text, isHtml = false) { 
+            typingIndicator.classList.add('active'); 
+            scrollToBottom(); 
+            setTimeout(() => { 
+                typingIndicator.classList.remove('active'); 
+                addMessage(text, 'bot', isHtml); 
+            }, CONFIG.typingSpeed); 
         }
 
-        updateAppIconPreview(CONFIG.appIcon);
-        selectEnFont.value = CONFIG.englishFont || "'Inter', sans-serif";
-        selectArFont.value = CONFIG.arabicFont || "'Cairo', sans-serif";
+        function createButton(text, onClick, isBack = false) { 
+            const btn = document.createElement('div'); 
+            btn.classList.add('keyboard-btn'); 
+            if(isBack) btn.classList.add('back-btn'); 
+            btn.innerText = text; 
+            btn.onclick = onClick; 
+            return btn; 
+        }
 
-        document.getElementById('admin-modal').classList.add('active');
-        window.switchAdminTab(0); 
-    }
+        function renderKeyboard() {
+            keyboardArea.innerHTML = ''; 
+            const subjects = Object.keys(database);
+            if (!currentSubject) { 
+                subjects.forEach(sub => { keyboardArea.appendChild(createButton(sub, () => handleSubjectClick(sub))); }); 
+                return; 
+            }
+            keyboardArea.appendChild(createButton("🔙 Back", goBack, true));
+            if (currentSubject && !currentDoctor) { 
+                const subjectDoctors = database[currentSubject].doctors; 
+                subjectDoctors.forEach(doc => { keyboardArea.appendChild(createButton(doc, () => handleDoctorClick(doc))); }); 
+            } else if (currentSubject && currentDoctor && !currentCategory) { 
+                const doctorSections = database[currentSubject][currentDoctor].sections; 
+                doctorSections.forEach(cat => { keyboardArea.appendChild(createButton(cat, () => handleCategoryClick(cat))); }); 
+            } else if (currentSubject && currentDoctor && currentCategory) { 
+                const fileList = database[currentSubject][currentDoctor][currentCategory] || []; 
+                if (fileList.length > 0) { 
+                    fileList.forEach(file => { keyboardArea.appendChild(createButton(file.name, () => handleFileClick(file))); }); 
+                } else { 
+                    const emptyBtn = createButton("❌ No files available", () => {}); 
+                    emptyBtn.style.opacity = "0.5"; emptyBtn.style.cursor = "default"; 
+                    keyboardArea.appendChild(emptyBtn); 
+                } 
+            }
+        }
 
-    window.closeAdminPanel = function() { document.getElementById('admin-modal').classList.remove('active'); startSync(); fetchConfig(); }
+        function handleSubjectClick(subjectName) { 
+            addMessage(subjectName, 'user'); 
+            currentSubject = subjectName; currentDoctor = null; currentCategory = null; 
+            const msg = replacePlaceholders(CONFIG.subjectPrompt, subjectName); 
+            botReply(msg, true); renderKeyboard(); 
+        }
+        function handleDoctorClick(doctorName) { 
+            addMessage(doctorName, 'user'); 
+            currentDoctor = doctorName; currentCategory = null; 
+            const msg = replacePlaceholders(CONFIG.doctorPrompt, doctorName); 
+            botReply(msg, true); renderKeyboard(); 
+        }
+        function handleCategoryClick(categoryName) { 
+            addMessage(categoryName, 'user'); 
+            currentCategory = categoryName; 
+            const msg = replacePlaceholders(CONFIG.categoryPrompt, categoryName); 
+            botReply(msg, true); renderKeyboard(); 
+        }
+        function handleFileClick(fileObj) {
+            const isNotification = fileObj.type === "notif" || (fileObj.link && fileObj.link.startsWith("content:"));
+            if (isNotification) {
+                const actualMsg = fileObj.type === "notif" ? fileObj.name : fileObj.link.replace("content:", "");
+                const htmlContent = `<div class="notif-display"><div class="notif-header">📢 Message from Doctor • ${currentDoctor} (${currentSubject})</div><div>${actualMsg}</div></div>`;
+                addMessage(htmlContent, 'bot', true);
+            } else {
+                addMessage(`Open: ${fileObj.name}`, 'user');
+                setTimeout(() => {
+                    if (!fileObj.link || fileObj.link.startsWith("javascript:") || fileObj.link === "#") { 
+                        const htmlContent = `<div style="margin-bottom:5px;">📎 <b>${fileObj.name}</b></div><div style="background:rgba(239,68,68,0.1); color:#fca5a5; padding:10px; border-radius:8px; border:1px solid rgba(239,68,68,0.2); font-size:13px;"><span>⚠️</span><span>Link not configured</span></div>`; 
+                        addMessage(htmlContent, 'bot', true); 
+                    } else { 
+                        const htmlContent = `<div style="margin-bottom:5px;">📎 <b>${fileObj.name}</b></div><a href="${fileObj.link}" target="_blank" class="file-link-btn"><span>📂</span><span>Download / Open File</span></a>`; 
+                        addMessage(htmlContent, 'bot', true); 
+                    }
+                }, 800);
+            }
+        }
+        function goBack() {
+            addMessage("🔙 Back", 'user');
+            if (currentCategory) { currentCategory = null; const msg = replacePlaceholders(CONFIG.backDoctor, currentDoctor); botReply(msg, true); } 
+            else if (currentDoctor) { currentDoctor = null; const msg = replacePlaceholders(CONFIG.backSubject, currentSubject); botReply(msg, true); } 
+            else if (currentSubject) { currentSubject = null; botReply(CONFIG.backMain, true); } 
+            renderKeyboard();
+        }
+        function replacePlaceholders(text, name) { let res = text || ""; if (name) res = res.replace(/{name}/g, name); res = res.replace(/{botName}/g, CONFIG.botName); return res; }
 
-    appIconUpload.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if(file) {
-            resizeAppIcon(file, (base64String) => {
-                CONFIG.appIcon = base64String;
-                updateAppIconPreview(base64String);
-                document.getElementById('manifest-icon-remove').style.display = 'inline-block';
+        menuBtn.addEventListener('click', (e) => { e.stopPropagation(); menuDropdown.classList.toggle('active'); });
+        document.addEventListener('click', (e) => { if (!menuDropdown.contains(e.target) && e.target !== menuBtn) menuDropdown.classList.remove('active'); });
+
+        window.clearChat = function() { chatArea.innerHTML = ''; resetStateVariables(); menuDropdown.classList.remove('active'); setTimeout(() => { botReply("Chat cleared. 🗑️<br>Welcome back! Choose a subject 👇", true); }, 100); }
+        window.resetBot = function() { resetStateVariables(); menuDropdown.classList.remove('active'); addMessage("🏠 Reset Bot", 'user'); botReply("Bot restarted. Please select a subject 👇", true); }
+        window.enableNotifications = function() {
+            menuDropdown.classList.remove('active'); 
+            if (!('Notification' in window)) { showToast("Browser doesn't support notifications.", "error"); return; }
+            Notification.requestPermission().then(permission => { 
+                if (permission === 'granted') { showToast("✅ Notifications Enabled", "success"); new Notification("Enabled", { body: "You will now receive updates." }); } 
+                else { showToast("❌ Permission Denied", "error"); } 
+            });
+        };
+        window.forceReload = function() {
+            document.getElementById('menu-dropdown').classList.remove('active');
+            showConfirmModal("Force Reload", "Do you want to fully reload app?", (confirm) => {
+                if(confirm) window.location.href = window.location.href.split('?')[0] + '?t=' + new Date().getTime();
+            });
+        };
+
+        // --- PWA & Install Logic ---
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const btn = document.getElementById('pwa-install-btn');
+            if(btn) btn.style.display = 'flex';
+        });
+        window.installApp = function() {
+            document.getElementById('menu-dropdown').classList.remove('active');
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        showToast('App installed successfully!', 'success');
+                        document.getElementById('pwa-install-btn').style.display = 'none';
+                    }
+                    deferredPrompt = null;
+                });
+            } else { showToast('Installation not available or already installed.', 'info'); }
+        };
+        window.showInstallGuide = function() {
+            document.getElementById('menu-dropdown').classList.remove('active');
+            document.getElementById('install-guide-overlay').classList.add('active');
+        }
+
+        function updateDynamicManifest(name, iconData) {
+            const version = CONFIG.appVersion || 1;
+            const baseUrl = window.location.href.split('?')[0] || window.location.href;
+            const startUrl = `${baseUrl}?v=${version}`;
+            const manifest = {
+                "name": name || CONFIG.botName, "short_name": name || CONFIG.botName, "start_url": startUrl,
+                "id": window.location.origin + "?v=" + version, "display": "standalone",
+                "background_color": "#0f172a", "theme_color": "#0f172a", "icons": []
+            };
+            if (iconData && iconData.length > 10) { manifest.icons.push({ "src": iconData, "sizes": "512x512", "type": "image/jpeg" }); } 
+            else { manifest.icons.push({ "src": "https://cdn-icons-png.flaticon.com/512/2991/2991148.png", "sizes": "512x512", "type": "image/png" }); }
+            const stringManifest = JSON.stringify(manifest);
+            const blob = new Blob([stringManifest], {type: 'application/manifest+json'});
+            const manifestURL = URL.createObjectURL(blob);
+            const link = document.querySelector('#dynamic-manifest');
+            if(link.href && link.href.startsWith('blob:')) URL.revokeObjectURL(link.href);
+            link.setAttribute('href', manifestURL);
+            let appleLink = document.querySelector('link[rel="apple-touch-icon"]');
+            if (!appleLink) { appleLink = document.createElement('link'); appleLink.rel = 'apple-touch-icon'; document.head.appendChild(appleLink); }
+            appleLink.href = iconData && iconData.length > 10 ? iconData : "https://cdn-icons-png.flaticon.com/512/2991/2991148.png";
+        }
+
+        // --- Image Processing ---
+        function compressImage(file, callback) {
+            const reader = new FileReader(); reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image(); img.src = event.target.result;
+                img.onload = () => {
+                    let width = img.width, height = img.height, MAX_SIZE = 150; 
+                    if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
+                    const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
+                    const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
+                    callback(canvas.toDataURL('image/jpeg', 0.6));
+                };
+            };
+        }
+        function resizeAppIcon(file, callback) {
+            const reader = new FileReader(); reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image(); img.src = event.target.result;
+                img.onload = () => {
+                    const SIZE = 512; const canvas = document.createElement('canvas'); canvas.width = SIZE; canvas.height = SIZE;
+                    const ctx = canvas.getContext('2d');
+                    let sWidth = img.width, sHeight = img.height, sx = 0, sy = 0;
+                    if (sWidth > sHeight) { sx = (sWidth - sHeight) / 2; sWidth = sHeight; } else { sy = (sHeight - sWidth) / 2; sHeight = sWidth; }
+                    ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, SIZE, SIZE);
+                    callback(canvas.toDataURL('image/jpeg', 0.4));
+                };
+            };
+        }
+
+        // --- Data Sync & Configuration ---
+        function fetchConfig() {
+            return fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, { headers: { 'X-Master-Key': JSONBIN_ACCESS_KEY, 'X-Bin-Meta': 'false' } })
+            .then(res => { if (!res.ok) throw new Error("Failed"); return res.json(); })
+            .then(data => { 
+                CONFIG = { ...defaultConfig, ...data }; 
+                if (data.database) CONFIG.database = { ...data.database, ...defaultDatabase }; else CONFIG.database = defaultDatabase;
+                applyConfig(CONFIG); 
+                
+                if (CONFIG.recentUpdates && CONFIG.recentUpdates.length > 0) {
+                    const seenIds = JSON.parse(localStorage.getItem('seenNotifIds') || '[]');
+                    const newUpdates = CONFIG.recentUpdates.filter(u => !seenIds.includes(u.id));
+                    if (newUpdates.length > 0) {
+                        const notifBody = newUpdates.map(u => `${u.doctor} (${u.subject})`).join('\n');
+                        if (navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage({ type: 'SYNCED_NOTIF_DOCTOR', body: notifBody, icon: CONFIG.appIcon || 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png' });
+                        showVisualAlertWithBody(notifBody);
+                        localStorage.setItem('seenNotifIds', JSON.stringify([...seenIds, ...newUpdates.map(u => u.id)]));
+                    }
+                }
+                if (CONFIG.generalBroadcast && CONFIG.generalBroadcast.active) checkAndShowBroadcast();
             });
         }
-    });
-
-    window.removeAppIcon = function() {
-        CONFIG.appIcon = "";
-        updateAppIconPreview("");
-        appIconUpload.value = "";
-        document.getElementById('manifest-icon-remove').style.display = 'none';
-    };
-
-    function updateAppIconPreview(base64) {
-        appIconPreview.innerHTML = '';
-        if(base64 && base64.length > 10) {
-            const img = document.createElement('img');
-            img.src = base64; 
-            appIconPreview.appendChild(img);
-        } else {
-            appIconPreview.innerHTML = '<span>📲</span>';
+        function saveConfigToBin(newConfig) {
+            const btnSave = document.querySelector('.btn-save'); const originalText = btnSave ? btnSave.innerText : "Saving...";
+            if(btnSave) btnSave.innerText = "Saving...";
+            fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_ACCESS_KEY }, body: JSON.stringify(newConfig) })
+            .then(res => { if (!res.ok) throw new Error("Save failed"); showToast("✅ Saved Successfully", "success"); database = newConfig.database; CONFIG.database = { ...newConfig.database, ...defaultDatabase }; database = CONFIG.database; if(btnSave) btnSave.innerText = originalText; })
+            .catch(err => { showToast("❌ Error: " + err.message, "error"); if(btnSave) btnSave.innerText = originalText; });
         }
-    }
+        function applyConfig(newConfig) {
+            CONFIG = newConfig; database = CONFIG.database; 
+            document.getElementById('header-name').innerText = CONFIG.botName; document.getElementById('header-status').innerHTML = `<div class="sync-dot"></div> ${CONFIG.botStatus}`; 
+            const avatarEl = document.getElementById('header-avatar');
+            if (CONFIG.botImage && CONFIG.botImage.trim().length > 50) { avatarEl.style.backgroundImage = `url('${CONFIG.botImage}')`; avatarEl.style.backgroundSize = "cover"; avatarEl.innerText = ""; } 
+            else { avatarEl.style.backgroundImage = "none"; avatarEl.innerText = CONFIG.botIcon; }
+            const chatArea = document.getElementById('chat-area');
+            if (CONFIG.chatBgImage && CONFIG.chatBgImage.trim().length > 50) { chatArea.style.backgroundImage = `url('${CONFIG.chatBgImage}')`; chatArea.style.backgroundSize = "cover"; } else { chatArea.style.backgroundImage = "none"; }
+            document.documentElement.style.setProperty('--font-en', CONFIG.englishFont || "'Inter', sans-serif");
+            document.documentElement.style.setProperty('--font-ar', CONFIG.arabicFont || "'Cairo', sans-serif");
+            if(CONFIG.appName || CONFIG.appIcon) updateDynamicManifest(CONFIG.appName, CONFIG.appIcon);
+            window.updateAuthUI(); renderKeyboard(); checkAndShowBroadcast();
+        }
+        function checkAndShowBroadcast() {
+            const existingBroadcast = document.getElementById('app-broadcast-msg');
+            if (existingBroadcast) existingBroadcast.remove();
+            if (CONFIG.generalBroadcast && CONFIG.generalBroadcast.active) {
+                const broadcastHTML = `
+                    <div id="app-broadcast-msg" class="message msg-bot broadcast-msg" onclick="window.markBroadcastRead()">
+                        <div class="broadcast-header"><span>📣</span> <span>Message from Batch Rep</span></div>
+                        <div><b>${CONFIG.generalBroadcast.title}</b></div>
+                        <div style="margin-top:5px; font-size:14px; line-height:1.4;">${CONFIG.generalBroadcast.body}</div>
+                        <span class="timestamp">${new Date(parseInt(CONFIG.generalBroadcast.timestamp)).toLocaleString()}</span>
+                    </div>`;
+                chatArea.insertAdjacentHTML('afterbegin', broadcastHTML);
+            }
+        }
+        window.markBroadcastRead = function() { };
+        function showVisualAlertWithBody(bodyText) {
+            const overlay = document.getElementById('visual-alert-overlay'); if (overlay.classList.contains('active')) return;
+            document.getElementById('visual-alert-body').innerText = bodyText; overlay.classList.add('active');
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        }
+        window.closeVisualAlert = function() { document.getElementById('visual-alert-overlay').classList.remove('active'); };
+        window.testNotification = function() {
+            document.getElementById('menu-dropdown').classList.remove('active');
+            if (!('Notification' in window)) { showToast("Browser doesn't support notifications.", "error"); return; }
+            Notification.requestPermission().then(permission => {
+                if (permission === 'granted') {
+                    if (navigator.serviceWorker.controller) {
+                        navigator.serviceWorker.controller.postMessage({ type: 'TEST_NOTIF', icon: CONFIG.appIcon || 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png' });
+                        showToast("Test notification sent...", "success");
+                    } else { new Notification("🧪 Test Successful", { body: "Notifications are working.", icon: CONFIG.appIcon }); showToast("Test notification sent...", "success"); }
+                } else { showToast("Permission denied.", "error"); }
+            });
+        };
 
-    window.saveAppManifest = function() {
-        const name = appNameInput.value.trim();
-        if(!name) return showToast("App name cannot be empty", "error");
+        // --- Admin Panel Logic ---
+        function resetStateVariables() { currentSubject = null; currentDoctor = null; currentCategory = null; renderKeyboard(); }
+        function hasAdminAccess() { const user = auth.currentUser; if (!user) return false; const email = user.email; return email === OWNER_EMAIL || (CONFIG.admins && CONFIG.admins.includes(email)); }
         
-        CONFIG.appVersion = (CONFIG.appVersion || 1) + 1;
+        window.openAdminPanel = function() {
+            stopSync(); 
+            document.getElementById('admin-bot-name').value = CONFIG.botName; document.getElementById('admin-bot-status').value = CONFIG.botStatus;
+            const adminIconRemove = document.getElementById('admin-icon-remove');
+            adminIconRemove.style.display = CONFIG.botImage ? 'inline-block' : 'none';
+            document.getElementById('admin-bg-remove').style.display = CONFIG.chatBgImage ? 'inline-block' : 'none';
+            document.getElementById('admin-msg-welcome').value = CONFIG.welcomeMessage; document.getElementById('admin-msg-subject').value = CONFIG.subjectPrompt;
+            document.getElementById('admin-msg-doctor').value = CONFIG.doctorPrompt; document.getElementById('admin-msg-category').value = CONFIG.categoryPrompt;
+            const backs = [CONFIG.backSubject, CONFIG.backDoctor, CONFIG.backMain]; document.getElementById('admin-msg-backs').value = backs.join(' | ');
+            
+            const user = auth.currentUser; const isOwner = (user && user.email === OWNER_EMAIL);
+            document.getElementById('owner-admin-section').style.display = isOwner ? 'block' : 'none';
+            document.getElementById('owner-typography-section').style.display = isOwner ? 'block' : 'none';
+            document.getElementById('nav-4').style.display = isOwner ? 'flex' : 'none';
+            
+            if (isOwner) renderAdminList(); else document.getElementById('admin-list-container').innerHTML = '';
+            
+            if(CONFIG.generalBroadcast && CONFIG.generalBroadcast.active) { document.getElementById('broadcast-title').value = CONFIG.generalBroadcast.title; document.getElementById('broadcast-body').value = CONFIG.generalBroadcast.body; } 
+            else { document.getElementById('broadcast-title').value = ""; document.getElementById('broadcast-body').value = ""; }
+            window.populateNotifSubjects(); renderAdminDataView();
+            document.getElementById('manifest-app-name').value = CONFIG.appName || CONFIG.botName;
+            const appIconRemove = document.getElementById('manifest-icon-remove');
+            appIconRemove.style.display = (CONFIG.appIcon && CONFIG.appIcon.length > 10) ? 'inline-block' : 'none';
+            updateAppIconPreview(CONFIG.appIcon);
+            document.getElementById('select-en-font').value = CONFIG.englishFont || "'Inter', sans-serif";
+            document.getElementById('select-ar-font').value = CONFIG.arabicFont || "'Cairo', sans-serif";
+            document.getElementById('admin-modal').classList.add('active');
+            window.switchAdminTab(0); 
+        }
+        window.closeAdminPanel = function() { document.getElementById('admin-modal').classList.remove('active'); startSync(); fetchConfig(); }
         
-        const newConfig = {
-            ...CONFIG,
-            appName: name,
-            appIcon: CONFIG.appIcon,
-            appVersion: CONFIG.appVersion
+        window.switchAdminTab = function(index) {
+            if (index === currentAdminTab) return; if(index < 0 || index > 4) return; 
+            const direction = index > currentAdminTab ? 'left' : 'right'; 
+            const currentTabId = `tab-${['settings','notifications','broadcast','data','manifest'][currentAdminTab]}`;
+            const nextTabId = `tab-${['settings','notifications','broadcast','data','manifest'][index]}`;
+            const currentEl = document.getElementById(currentTabId); const nextEl = document.getElementById(nextTabId);
+            document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active')); document.getElementById(`nav-${index}`).classList.add('active');
+            nextEl.classList.remove('active'); nextEl.style.display = 'block'; nextEl.style.opacity = '0'; nextEl.style.transition = 'none'; nextEl.style.transform = direction === 'left' ? 'translateX(100%)' : 'translateX(-100%)';
+            void nextEl.offsetWidth;
+            const duration = 300; 
+            currentEl.style.transition = `transform ${duration}ms ease-in-out, opacity ${duration}ms ease-in-out`;
+            nextEl.style.transition = `transform ${duration}ms ease-in-out, opacity ${duration}ms ease-in-out`;
+            currentEl.style.transform = direction === 'left' ? 'translateX(-100%)' : 'translateX(100%)'; currentEl.style.opacity = '0';
+            nextEl.style.transform = 'translateX(0)'; nextEl.style.opacity = '1';
+            setTimeout(() => { currentEl.style.display = 'none'; currentEl.classList.remove('active'); nextEl.classList.add('active'); currentAdminTab = index; }, duration);
         };
         
-        const saveBtn = document.querySelector('#tab-manifest .btn-save');
-        const originalText = saveBtn.innerText;
-        saveBtn.innerText = "Updating...";
-        
-        fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_ACCESS_KEY }, body: JSON.stringify(newConfig) })
-        .then(res => { 
-            if (!res.ok) throw new Error("Save failed"); 
-            showToast("✅ Settings Saved! Reloading...", "success"); 
-            CONFIG = { ...CONFIG, ...newConfig }; 
-            
-            updateDynamicManifest(CONFIG.appName, CONFIG.appIcon);
-            
-            if ('caches' in window) {
-                caches.keys().then(function(names) {
-                    for (let name of names) {
-                        caches.delete(name);
-                    }
+        // --- Admin Data & Settings ---
+        window.saveAdminSettings = function() {
+            const backsArr = document.getElementById('admin-msg-backs').value.split('|').map(s => s.trim());
+            const newConfig = {
+                botName: document.getElementById('admin-bot-name').value.trim() || defaultConfig.botName, 
+                botText: document.getElementById('admin-bot-status').value.trim() || defaultConfig.botStatus, 
+                botImage: CONFIG.botImage, chatBgImage: CONFIG.chatBgImage, 
+                welcomeMessage: document.getElementById('admin-msg-welcome').value, 
+                subjectPrompt: document.getElementById('admin-msg-subject').value, 
+                doctorPrompt: document.getElementById('admin-msg-doctor').value, 
+                categoryPrompt: document.getElementById('admin-msg-category').value, 
+                backSubject: backsArr[0] || CONFIG.backSubject, backDoctor: backsArr[1] || CONFIG.backDoctor, 
+                backMain: backsArr[2] || CONFIG.backMain, admins: CONFIG.admins, 
+                generalBroadcast: CONFIG.generalBroadcast, latestNotificationUpdate: CONFIG.latestNotificationUpdate, 
+                recentUpdates: CONFIG.recentUpdates, database: database,
+                englishFont: document.getElementById('select-en-font').value,
+                arabicFont: document.getElementById('select-ar-font').value,
+                appName: CONFIG.appName, appIcon: CONFIG.appIcon, appVersion: CONFIG.appVersion
+            };
+            CONFIG = { ...CONFIG, ...newConfig }; applyConfig(CONFIG); saveConfigToBin(newConfig);
+        }
+
+        document.getElementById('admin-icon-upload').addEventListener('change', function(e) { 
+            const file = e.target.files[0]; if(file) { compressImage(file, (base64String) => { CONFIG.botImage = base64String; applyConfig(CONFIG); document.getElementById('admin-icon-remove').style.display = 'inline-block'; }); } 
+        });
+        window.removeBotIcon = function() { CONFIG.botImage = ""; applyConfig(CONFIG); document.getElementById('admin-icon-upload').value = ""; document.getElementById('admin-icon-remove').style.display = 'none'; };
+        document.getElementById('admin-bg-upload').addEventListener('change', function(e) { 
+            const file = e.target.files[0]; if(file) { compressImage(file, (base64String) => { CONFIG.chatBgImage = base64String; applyConfig(CONFIG); document.getElementById('admin-bg-remove').style.display = 'inline-block'; }); } 
+        });
+        window.removeChatBg = function() { CONFIG.chatBgImage = ""; applyConfig(CONFIG); document.getElementById('admin-bg-upload').value = ""; document.getElementById('admin-bg-remove').style.display = 'none'; };
+
+        function renderAdminList() {
+            const container = document.getElementById('admin-list-container'); container.innerHTML = ''; 
+            if (!CONFIG.admins || CONFIG.admins.length === 0) { container.innerHTML = '<div style="color:#94a3b8; font-size:13px; text-align:center;">No admins added</div>'; return; }
+            CONFIG.admins.forEach((adminEmail, index) => {
+                const div = document.createElement('div'); div.className = 'data-item'; 
+                const nameSpan = document.createElement('span'); nameSpan.className = 'data-name'; nameSpan.innerText = adminEmail; 
+                const removeBtn = document.createElement('button'); removeBtn.className = 'btn-sm btn-del'; removeBtn.innerText = '🗑️'; 
+                removeBtn.onclick = () => removeAdmin(index); div.appendChild(nameSpan); div.appendChild(removeBtn); container.appendChild(div);
+            });
+        }
+        window.addAdmin = function() { 
+            const email = document.getElementById('admin-add-input').value.trim(); 
+            if (email && (!CONFIG.admins.includes(email))) { 
+                if (!email.includes('@')) return showToast("Valid email required", "error"); CONFIG.admins.push(email); document.getElementById('admin-add-input').value = ''; renderAdminList(); 
+            } else if (email) showToast("Email already added", "error"); 
+        }
+        window.removeAdmin = function(index) { 
+            if (!auth || !auth.currentUser || auth.currentUser.email !== OWNER_EMAIL) { showToast("⛔ Only Owner can remove admins.", "error"); return; } 
+            showConfirmModal("Remove Admin", "Are you sure?", (confirmed) => { if(confirmed) { CONFIG.admins.splice(index,1); renderAdminList(); } }); 
+        }
+
+        // --- Admin Data Manager ---
+        function renderAdminDataView() {
+            const pathContainer = document.getElementById('admin-data-path'); const listContainer = document.getElementById('admin-list-items');
+            listContainer.innerHTML = ''; document.getElementById('new-item-name').value = ''; document.getElementById('new-item-link').value = ''; 
+            let pathHTML = `<span onclick="window.adminNavTo(-1)">Home</span>`;
+            if (adminNavStack.length > 0) pathHTML += ` > <span onclick="window.adminNavTo(0)">${adminNavStack[0]}</span>`;
+            if (adminNavStack.length > 1) pathHTML += ` > <span onclick="window.adminNavTo(1)">${adminNavStack[1]}</span>`;
+            if (adminNavStack.length > 2) pathHTML += ` > <span>${adminNavStack[2]}</span>`; pathContainer.innerHTML = pathHTML;
+            let level = adminNavStack.length; let dataList = []; let isNotificationsFolder = (level ===3 && adminNavStack[2] === "🔔 Notifications");
+            const linkGroup = document.getElementById('file-link-input-group');
+            if (level === 0) { dataList = Object.keys(database); linkGroup.style.display = 'none'; } 
+            else if (level === 1) { const subName = adminNavStack[0]; if (database[subName] && database[subName].doctors) dataList = database[subName].doctors; linkGroup.style.display = 'none'; } 
+            else if (level === 2) { const subName = adminNavStack[0]; const docName = adminNavStack[1]; if (database[subName] && database[subName][docName] && database[subName][docName].sections) dataList = database[subName][docName].sections; linkGroup.style.display = 'none'; } 
+            else if (level === 3) { const subName = adminNavStack[0]; const docName = adminNavStack[1]; const secName = adminNavStack[2]; if (database[subName] && database[subName][docName] && database[subName][docName][secName]) dataList = database[subName][docName][secName]; 
+                if (!isNotificationsFolder) { linkGroup.style.display = 'block'; document.getElementById('new-item-name').placeholder = "File Name..."; } else { linkGroup.style.display = 'none'; document.getElementById('new-item-name').placeholder = "Notification Text..."; } 
+            }
+            if (dataList.length === 0) { listContainer.innerHTML = '<div style="text-align:center; color:#64748b; padding:20px;">No items found</div>'; }
+            else {
+                dataList.forEach((item, index) => {
+                    const itemName = (typeof item === 'object') ? item.name : item; const div = document.createElement('div'); div.className = 'data-item'; 
+                    const nameSpan = document.createElement('div'); nameSpan.className = 'data-name'; nameSpan.innerText = itemName; 
+                    if (level < 3) nameSpan.onclick = () => { adminNavStack.push(itemName); renderAdminDataView(); }; 
+                    const actionsDiv = document.createElement('div'); actionsDiv.className = 'data-actions'; 
+                    const delBtn = document.createElement('button'); delBtn.className = 'btn-sm btn-del'; delBtn.innerText = '🗑️'; delBtn.onclick = () => deleteAdminDataItem(index); actionsDiv.appendChild(delBtn); 
+                    if (isNotificationsFolder && (typeof item === 'object') && item.id) { 
+                        const editBtn = document.createElement('button'); editBtn.className = 'btn-sm btn-edit'; editBtn.innerText = '✏️'; editBtn.onclick = () => editNotification(index); actionsDiv.appendChild(editBtn); 
+                    } div.appendChild(nameSpan); div.appendChild(actionsDiv); listContainer.appendChild(div);
                 });
             }
-
-            setTimeout(() => {
-                const baseUrl = window.location.href.split('?')[0];
-                window.location.href = `${baseUrl}?v=${CONFIG.appVersion}`;
-            }, 1500);
-        })
-        .catch(err => { 
-            showToast("❌ Error: " + err.message, "error"); 
-            saveBtn.innerText = originalText; 
-        });
-    }
-
-    window.switchAdminTab = function(index) {
-        if (index === currentAdminTab) return;
-        if(index < 0 || index > 4) return; 
-
-        const direction = index > currentAdminTab ? 'left' : 'right'; 
-        const currentTabId = `tab-${['settings','notifications','broadcast','data','manifest'][currentAdminTab]}`;
-        const nextTabId = `tab-${['settings','notifications','broadcast','data','manifest'][index]}`;
-        
-        const currentEl = document.getElementById(currentTabId);
-        const nextEl = document.getElementById(nextTabId);
-
-        document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
-        document.getElementById(`nav-${index}`).classList.add('active');
-
-        nextEl.classList.remove('active'); 
-        nextEl.style.display = 'block';
-        nextEl.style.opacity = '0';
-        nextEl.style.transition = 'none';
-        nextEl.style.transform = direction === 'left' ? 'translateX(100%)' : 'translateX(-100%)';
-
-        void nextEl.offsetWidth;
-
-        const duration = 300; 
-
-        currentEl.style.transition = `transform ${duration}ms ease-in-out, opacity ${duration}ms ease-in-out`;
-        nextEl.style.transition = `transform ${duration}ms ease-in-out, opacity ${duration}ms ease-in-out`;
-
-        currentEl.style.transform = direction === 'left' ? 'translateX(-100%)' : 'translateX(100%)';
-        currentEl.style.opacity = '0';
-
-        nextEl.style.transform = 'translateX(0)';
-        nextEl.style.opacity = '1';
-
-        setTimeout(() => {
-            currentEl.style.display = 'none';
-            currentEl.classList.remove('active'); 
-            
-            nextEl.classList.add('active');
-            currentAdminTab = index;
-        }, duration);
-    };
-
-    adminIconUpload.addEventListener('change', function(e) { const file = e.target.files[0]; if(file) { compressImage(file, (base64String) => { CONFIG.botImage = base64String; applyConfig(CONFIG); adminIconRemove.style.display = 'inline-block'; }); } });
-    window.removeBotIcon = function() { CONFIG.botImage = ""; applyConfig(CONFIG); adminIconUpload.value = ""; adminIconRemove.style.display = 'none'; };
-    adminBgUpload.addEventListener('change', function(e) { const file = e.target.files[0]; if(file) { compressImage(file, (base64String) => { CONFIG.chatBgImage = base64String; applyConfig(CONFIG); adminBgRemove.style.display = 'inline-block'; }); } });
-    window.removeChatBg = function() { CONFIG.chatBgImage = ""; applyConfig(CONFIG); adminBgUpload.value = ""; adminBgRemove.style.display = 'none'; };
-    function renderAdminList() {
-        adminListContainer.innerHTML = ''; if (!CONFIG.admins || CONFIG.admins.length === 0) { adminListContainer.innerHTML = '<div style="color:#94a3b8; font-size:13px; text-align:center;">No admins added</div>'; return; }
-        CONFIG.admins.forEach((adminEmail, index) => {
-            const div = document.createElement('div'); div.className = 'data-item'; const nameSpan = document.createElement('span'); nameSpan.className = 'data-name'; nameSpan.innerText = adminEmail; const removeBtn = document.createElement('button'); removeBtn.className = 'btn-sm btn-del'; removeBtn.innerText = '🗑️'; removeBtn.onclick = () => removeAdmin(index); div.appendChild(nameSpan); div.appendChild(removeBtn); adminListContainer.appendChild(div);
-        });
-    }
-    window.addAdmin = function() { const email = adminAddInput.value.trim(); if (email && (!CONFIG.admins.includes(email))) { if (!email.includes('@')) return showToast("Valid email required", "error"); CONFIG.admins.push(email); adminAddInput.value = ''; renderAdminList(); } else if (email) showToast("Email already added", "error"); }
-    window.removeAdmin = function(index) { if (!auth || !auth.currentUser || auth.currentUser.email !== OWNER_EMAIL) { showToast("⛔ Only Owner can remove admins.", "error"); return; } showConfirmModal("Remove Admin", "Are you sure?", (confirmed) => { if(confirmed) { CONFIG.admins.splice(index,1); renderAdminList(); } }); }
-    window.saveAdminSettings = function() {
-        const backsArr = respBacks.value.split('|').map(s => s.trim());
-        const newConfig = {
-            botName: adminNameInput.value.trim() || defaultConfig.botName, botText: adminStatusInput.value.trim() || defaultConfig.botStatus, botImage: CONFIG.botImage, chatBgImage: CONFIG.chatBgImage, welcomeMessage: respWelcome.value, subjectPrompt: respSubject.value, doctorPrompt: respDoctor.value, categoryPrompt: respCategory.value, backSubject: backsArr[0] || CONFIG.backSubject, backDoctor: backsArr[1] || CONFIG.backDoctor, backMain: backsArr[2] || CONFIG.backMain, admins: CONFIG.admins, generalBroadcast: CONFIG.generalBroadcast, latestNotificationUpdate: CONFIG.latestNotificationUpdate, recentUpdates: CONFIG.recentUpdates, database: database,
-            englishFont: selectEnFont.value,
-            arabicFont: selectArFont.value,
-            appName: CONFIG.appName,
-            appIcon: CONFIG.appIcon,
-            appVersion: CONFIG.appVersion
-        };
-        CONFIG = { ...CONFIG, ...newConfig }; applyConfig(CONFIG); saveConfigToBin(newConfig);
-    }
-
-    function renderAdminDataView() {
-        const pathContainer = document.getElementById('admin-data-path'); const listContainer = document.getElementById('admin-list-items'); const addBoxNameInput = document.getElementById('new-item-name'); const addBoxLinkGroup = document.getElementById('file-link-input-group'); const addBoxLinkInput = document.getElementById('new-item-link');
-        listContainer.innerHTML = ''; addBoxNameInput.value = ''; addBoxLinkInput.value = ''; addBoxNameInput.placeholder = "Name...";
-        let pathHTML = `<span onclick="window.adminNavTo(-1)">Home</span>`;
-        if (adminNavStack.length > 0) pathHTML += ` > <span onclick="window.adminNavTo(0)">${adminNavStack[0]}</span>`;
-        if (adminNavStack.length > 1) pathHTML += ` > <span onclick="window.adminNavTo(1)">${adminNavStack[1]}</span>`;
-        if (adminNavStack.length > 2) pathHTML += ` > <span>${adminNavStack[2]}</span>`; pathContainer.innerHTML = pathHTML;
-        let level = adminNavStack.length; let dataList = []; let isNotificationsFolder = false;
-        if (level ===3 && adminNavStack[2] === "🔔 Notifications") isNotificationsFolder = true;
-        if (level === 0) { dataList = Object.keys(database); addBoxLinkGroup.style.display = 'none'; } 
-        else if (level === 1) { const subName = adminNavStack[0]; if (database[subName] && database[subName].doctors) dataList = database[subName].doctors; addBoxLinkGroup.style.display = 'none'; } 
-        else if (level === 2) { const subName = adminNavStack[0]; const docName = adminNavStack[1]; if (database[subName] && database[subName][docName] && database[subName][docName].sections) dataList = database[subName][docName].sections; addBoxLinkGroup.style.display = 'none'; } 
-        else if (level === 3) { const subName = adminNavStack[0]; const docName = adminNavStack[1]; const secName = adminNavStack[2]; if (database[subName] && database[subName][docName] && database[subName][docName][secName]) dataList = database[subName][docName][secName]; if (!isNotificationsFolder) { addBoxLinkGroup.style.display = 'block'; addBoxNameInput.placeholder = "File Name..."; } else { addBoxLinkGroup.style.display = 'none'; addBoxNameInput.placeholder = "Notification Text..."; } }
-        if (dataList.length === 0) { listContainer.innerHTML = '<div style="text-align:center; color:#64748b; padding:20px;">No items found</div>'; }
-        else {
-            dataList.forEach((item, index) => {
-                const itemName = (typeof item === 'object') ? item.name : item; const div = document.createElement('div'); div.className = 'data-item'; const nameSpan = document.createElement('div'); nameSpan.className = 'data-name'; nameSpan.innerText = itemName; if (level < 3) nameSpan.onclick = () => { adminNavStack.push(itemName); renderAdminDataView(); }; const actionsDiv = document.createElement('div'); actionsDiv.className = 'data-actions'; const delBtn = document.createElement('button'); delBtn.className = 'btn-sm btn-del'; delBtn.innerText = '🗑️'; delBtn.onclick = () => deleteAdminDataItem(index); actionsDiv.appendChild(delBtn); if (isNotificationsFolder && (typeof item === 'object') && item.id) { const editBtn = document.createElement('button'); editBtn.className = 'btn-sm btn-edit'; editBtn.innerText = '✏️'; editBtn.onclick = () => editNotification(index); actionsDiv.appendChild(editBtn); } div.appendChild(nameSpan); div.appendChild(actionsDiv); listContainer.appendChild(div);
+        }
+        window.adminNavTo = function(index) { if (index === -1) adminNavStack = []; else adminNavStack = adminNavStack.slice(0, index + 1); renderAdminDataView(); }
+        window.editNotification = function(index) {
+            const sub = adminNavStack[0]; const doc = adminNavStack[1]; const sec = adminNavStack[2]; const list = database[sub][doc][sec]; const item = list[index];
+            showInputModal("Edit Notification", "New Text:", (newText) => { if (newText !== null && newText.trim() !== "") { item.name = newText.trim(); item.date = new Date().toLocaleString('en-US', { weekday: 'short', hour: '2-digit', minute:'2-digit' }) + " (Edited)"; renderAdminDataView(); showToast("Edited. Save to apply.", "info"); } });
+        }
+        window.addAdminDataItem = function() {
+            const nameInput = document.getElementById('new-item-name'); const linkInput = document.getElementById('new-item-link'); const name = nameInput.value.trim(); let level = adminNavStack.length;
+            if (!name) return showToast("Please enter a name", "error");
+            if (level === 0) { if (database[name]) return showToast("Subject exists", "error"); database[name] = { doctors: [] }; } 
+            else if (level === 1) { const sub = adminNavStack[0]; if (!database[sub]) database[sub] = { doctors: [] }; if (database[sub].doctors.includes(name)) return showToast("Doctor exists", "error"); database[sub].doctors.push(name); database[sub][name] = { sections: ["📚 Lectures", "🔔 Notifications"] }; database[sub][name]["📚 Lectures"] = []; database[sub][name]["🔔 Notifications"] = []; } 
+            else if (level === 2) { const sub = adminNavStack[0]; const doc = adminNavStack[1]; if (!database[sub][doc]) database[sub][doc] = { sections: [] }; if (database[sub][doc].sections.includes(name)) return showToast("Section exists", "error"); database[sub][doc].sections.push(name); database[sub][doc][name] = []; } 
+            else if (level === 3) { const sub = adminNavStack[0]; const doc = adminNavStack[1]; const sec = adminNavStack[2]; if (sec === "🔔 Notifications") { database[sub][doc][sec].unshift({ id: Date.now().toString(36) + Math.random().toString(36).substr(2), name: name, date: new Date().toLocaleString(), type: "notif" }); } else { const link = linkInput.value.trim() || "#"; if (!database[sub][doc][sec]) database[sub][doc][sec] = []; database[sub][doc][sec].push({ name: name, link: link }); } }
+            renderAdminDataView();
+        }
+        function deleteAdminDataItem(index) {
+            let level = adminNavStack.length;
+            showConfirmModal("Confirm Delete", "Are you sure?", (confirmed) => {
+                if(!confirmed) return;
+                if (level === 0) { const subKeys = Object.keys(database); delete database[subKeys[index]]; } 
+                else if (level === 1) { const sub = adminNavStack[0]; const docName = database[sub].doctors[index]; database[sub].doctors.splice(index, 1); delete database[sub][docName]; }
+                else if (level === 2) { const sub = adminNavStack[0]; const docName = adminNavStack[1]; const secName = database[sub][doc].sections[index]; database[sub][doc].sections.splice(index, 1); delete database[sub][doc][secName]; }
+                else if (level === 3) { const sub = adminNavStack[0]; const docName = adminNavStack[1]; const secName = adminNavStack[2]; database[sub][doc][sec].splice(index, 1); }
+                renderAdminDataView();
             });
         }
-    }
-    window.adminNavTo = function(index) { if (index === -1) adminNavStack = []; else adminNavStack = adminNavStack.slice(0, index + 1); renderAdminDataView(); }
-    window.editNotification = function(index) {
-        const sub = adminNavStack[0]; const doc = adminNavStack[1]; const sec = adminNavStack[2]; const list = database[sub][doc][sec]; const item = list[index];
-        showInputModal("Edit Notification", "New Text:", (newText) => { if (newText !== null && newText.trim() !== "") { item.name = newText.trim(); item.date = new Date().toLocaleString('en-US', { weekday: 'short', hour: '2-digit', minute:'2-digit' }) + " (Edited)"; renderAdminDataView(); showToast("Edited. Save to apply.", "info"); } });
-    }
-    window.addAdminDataItem = function() {
-        const nameInput = document.getElementById('new-item-name'); const linkInput = document.getElementById('new-item-link'); const name = nameInput.value.trim(); let level = adminNavStack.length;
-        if (!name) return showToast("Please enter a name", "error");
-        if (level === 0) { if (database[name]) return showToast("Subject exists", "error"); database[name] = { doctors: [] }; } 
-        else if (level === 1) { const sub = adminNavStack[0]; if (!database[sub]) database[sub] = { doctors: [] }; if (database[sub].doctors.includes(name)) return showToast("Doctor exists", "error"); database[sub].doctors.push(name); database[sub][name] = { sections: ["📚 Lectures", "🔔 Notifications"] }; database[sub][name]["📚 Lectures"] = []; database[sub][name]["🔔 Notifications"] = []; } 
-        else if (level === 2) { const sub = adminNavStack[0]; const doc = adminNavStack[1]; if (!database[sub][doc]) database[sub][doc] = { sections: [] }; if (database[sub][doc].sections.includes(name)) return showToast("Section exists", "error"); database[sub][doc].sections.push(name); database[sub][doc][name] = []; } 
-        else if (level === 3) { const sub = adminNavStack[0]; const doc = adminNavStack[1]; const sec = adminNavStack[2]; if (sec === "🔔 Notifications") { database[sub][doc][sec].unshift({ id: Date.now().toString(36) + Math.random().toString(36).substr(2), name: name, date: new Date().toLocaleString(), type: "notif" }); } else { const link = linkInput.value.trim() || "#"; if (!database[sub][doc][sec]) database[sub][doc][sec] = []; database[sub][doc][sec].push({ name: name, link: link }); } }
-        renderAdminDataView();
-    }
-    function deleteAdminDataItem(index) {
-        let level = adminNavStack.length;
-        showConfirmModal("Confirm Delete", "Are you sure?", (confirmed) => {
-            if(!confirmed) return;
-            if (level === 0) { const subKeys = Object.keys(database); delete database[subKeys[index]]; } 
-            else if (level === 1) { const sub = adminNavStack[0]; const docName = database[sub].doctors[index]; database[sub].doctors.splice(index, 1); delete database[sub][docName]; }
-            else if (level === 2) { const sub = adminNavStack[0]; const docName = adminNavStack[1]; const secName = database[sub][doc].sections[index]; database[sub][doc].sections.splice(index, 1); delete database[sub][doc][secName]; }
-            else if (level === 3) { const sub = adminNavStack[0]; const docName = adminNavStack[1]; const secName = adminNavStack[2]; database[sub][doc][sec].splice(index, 1); }
-            renderAdminDataView();
+
+        // --- Notifications (Admin) ---
+        window.populateNotifSubjects = function() {
+            const select = document.getElementById('notif-subject-select'); select.innerHTML = '<option value="">-- Select Subject --</option>';
+            const subjects = Object.keys(database); subjects.forEach(sub => { const opt = document.createElement('option'); opt.value = sub; opt.innerText = sub; select.appendChild(opt); });
+        };
+        window.populateNotifDoctors = function() {
+            const subject = document.getElementById('notif-subject-select').value; const docSelect = document.getElementById('notif-doctor-select'); docSelect.innerHTML = '<option value="">-- Select Doctor --</option>';
+            if(subject && database[subject] && database[subject].doctors) { database[subject].doctors.forEach(doc => { const opt = document.createElement('option'); opt.value = doc; opt.innerText = doc; docSelect.appendChild(opt); }); } window.loadNotifPreview();
+        };
+        window.loadNotifPreview = function() { };
+        window.sendDoctorNotification = function() {
+            if (!hasAdminAccess()) return showToast("❌ Unauthorized Access.", "error");
+            const subject = document.getElementById('notif-subject-select').value; const doctor = document.getElementById('notif-doctor-select').value; const message = document.getElementById('notif-message-text').value.trim();
+            if(!subject || !doctor || !message) return showToast("Please fill all fields", "error");
+            const fullDate = Date.now(); const updateId = fullDate.toString() + "_" + Math.random().toString(36).substr(2,5);
+            if (!database[subject][doctor].sections) database[subject][doctor].sections = [];
+            if (!database[subject][doctor].sections.includes("🔔 Notifications")) database[subject][doctor].sections.unshift("🔔 Notifications");
+            if (!database[subject][doctor]["🔔 Notifications"]) database[subject][doctor]["🔔 Notifications"] = [];
+            database[subject][doctor]["🔔 Notifications"].unshift({ id: updateId, name: message, date: new Date().toLocaleString(), type: "notif", fullDate: fullDate });
+            if (!CONFIG.recentUpdates) CONFIG.recentUpdates = [];
+            CONFIG.recentUpdates.unshift({ id: updateId, doctor: doctor, subject: subject, timestamp: fullDate });
+            if (CONFIG.recentUpdates.length > 5) CONFIG.recentUpdates = CONFIG.recentUpdates.slice(0, 5);
+            CONFIG.latestNotificationUpdate = fullDate; CONFIG.database = database;
+            const saveBtn = document.querySelector('#tab-notifications .btn-send'); saveBtn.innerText = "Sending..."; saveBtn.disabled = true;
+            fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_ACCESS_KEY }, body: JSON.stringify(CONFIG) })
+            .then(res => { if (!res.ok) throw new Error("Send failed"); showToast("✅ Notification Sent", "success"); document.getElementById('notif-message-text').value = ""; saveBtn.innerText = "Send Notification"; saveBtn.disabled = false; fetchConfig(); })
+            .catch(err => { showToast("❌ Error: " + err.message, "error"); saveBtn.innerText = "Send Notification"; saveBtn.disabled = false; });
+        };
+
+        // --- Broadcast (Admin) ---
+        window.saveBroadcast = function() {
+            const user = auth.currentUser; const email = user ? user.email : null; const isOwner = email === OWNER_EMAIL; let allowed = isOwner;
+            if (!allowed) { showInputModal("Verify Identity", "Password (Owner)", (pass) => { if (pass === "1234") proceedBroadcastSave(); else showToast("Wrong Password", "error"); }); return; } proceedBroadcastSave();
+        };
+        function proceedBroadcastSave() {
+            const title = document.getElementById('broadcast-title').value.trim(); const body = document.getElementById('broadcast-body').value.trim();
+            if(!title || !body) return showToast("Please enter title and body", "error");
+            CONFIG.generalBroadcast = { active: true, title: title, body: body, timestamp: Date.now() };
+            const saveBtn = document.querySelector('#tab-broadcast .btn-save'); saveBtn.innerText = "Posting...";
+            fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_ACCESS_KEY }, body: JSON.stringify(CONFIG) })
+            .then(res => { if (!res.ok) throw new Error("Save failed"); showToast("✅ Broadcast Posted", "success"); saveBtn.innerText = "Post Broadcast"; checkAndShowBroadcast(); fetchConfig(); })
+            .catch(err => { showToast("❌ Error: " + err.message, "error"); saveBtn.innerText = "Post Broadcast"; });
+        }
+        window.deleteBroadcast = function() {
+            const user = auth.currentUser; const email = user ? user.email : null; const isOwner = email === OWNER_EMAIL; let allowed = isOwner;
+            if (!allowed) { showInputModal("Verify Identity", "Password (Owner)", (pass) => { if (pass === "1234") proceedBroadcastDelete(); else showToast("Wrong Password", "error"); }); return; } proceedBroadcastDelete();
+        };
+        function proceedBroadcastDelete() {
+            showConfirmModal("Confirm Delete", "Are you sure you want to delete this broadcast?", (confirmed) => {
+                if (!confirmed) return; CONFIG.generalBroadcast = { active: false, title: "", body: "", timestamp: 0 };
+                document.getElementById('broadcast-title').value = ""; document.getElementById('broadcast-body').value = "";
+                fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_ACCESS_KEY }, body: JSON.stringify(CONFIG) })
+                .then(res => { if (!res.ok) throw new Error("Delete failed"); showToast("✅ Deleted Successfully", "success"); const existing = document.getElementById('app-broadcast-msg'); if(existing) existing.remove(); })
+                .catch(err => showToast("❌ Error: " + err.message, "error"));
+            });
+        }
+
+        // --- App Manifest Logic (Admin) ---
+        document.getElementById('manifest-icon-upload').addEventListener('change', function(e) {
+            const file = e.target.files[0]; if(file) { resizeAppIcon(file, (base64String) => { CONFIG.appIcon = base64String; updateAppIconPreview(base64String); document.getElementById('manifest-icon-remove').style.display = 'inline-block'; }); }
         });
-    }
-    function resetStateVariables() { currentSubject = null; currentDoctor = null; currentCategory = null; renderKeyboard(); }
-    function renderKeyboard() {
-        keyboardArea.innerHTML = ''; const subjects = Object.keys(database);
-        if (!currentSubject) { subjects.forEach(sub => { keyboardArea.appendChild(createButton(sub, () => handleSubjectClick(sub))); }); return; }
-        keyboardArea.appendChild(createButton("🔙 Back", goBack, true));
-        if (currentSubject && !currentDoctor) { const subjectDoctors = database[currentSubject].doctors; subjectDoctors.forEach(doc => { keyboardArea.appendChild(createButton(doc, () => handleDoctorClick(doc))); }); } 
-        else if (currentSubject && currentDoctor && !currentCategory) { const doctorSections = database[currentSubject][currentDoctor].sections; doctorSections.forEach(cat => { keyboardArea.appendChild(createButton(cat, () => handleCategoryClick(cat))); }); } 
-        else if (currentSubject && currentDoctor && currentCategory) { const fileList = database[currentSubject][currentDoctor][currentCategory] || []; if (fileList.length > 0) { fileList.forEach(file => { keyboardArea.appendChild(createButton(file.name, () => handleFileClick(file))); }); } else { const emptyBtn = createButton("❌ No files available", () => {}); emptyBtn.style.opacity = "0.5"; emptyBtn.style.cursor = "default"; keyboardArea.appendChild(emptyBtn); } }
-    }
-    function handleSubjectClick(subjectName) { addMessage(subjectName, 'user'); currentSubject = subjectName; currentDoctor = null; currentCategory = null; const msg = replacePlaceholders(CONFIG.subjectPrompt, subjectName); botReply(msg, true); renderKeyboard(); }
-    function handleDoctorClick(doctorName) { addMessage(doctorName, 'user'); currentDoctor = doctorName; currentCategory = null; const msg = replacePlaceholders(CONFIG.doctorPrompt, doctorName); botReply(msg, true); renderKeyboard(); }
-    function handleCategoryClick(categoryName) { addMessage(categoryName, 'user'); currentCategory = categoryName; const msg = replacePlaceholders(CONFIG.categoryPrompt, categoryName); botReply(msg, true); renderKeyboard(); }
-    function handleFileClick(fileObj) {
-        const isNotification = fileObj.type === "notif" || (fileObj.link && fileObj.link.startsWith("content:"));
-        if (isNotification) {
-            const actualMsg = fileObj.type === "notif" ? fileObj.name : fileObj.link.replace("content:", "");
-            const htmlContent = `<div class="notif-display"><div class="notif-header">📢 Message from Doctor • ${currentDoctor} (${currentSubject})</div><div>${actualMsg}</div></div>`;
-            addMessage(htmlContent, 'bot', true);
-        } else {
-            addMessage(`Open: ${fileObj.name}`, 'user');
-            setTimeout(() => {
-                if (!fileObj.link || fileObj.link.startsWith("javascript:") || fileObj.link === "#") { const htmlContent = `<div style="margin-bottom:5px;">📎 <b>${fileObj.name}</b></div><div style="background:rgba(239,68,68,0.1); color:#fca5a5; padding:10px; border-radius:8px; border:1px solid rgba(239,68,68,0.2); font-size:13px;"><span>⚠️</span><span>Link not configured</span></div>`; addMessage(htmlContent, 'bot', true); } 
-                else { const htmlContent = `<div style="margin-bottom:5px;">📎 <b>${fileObj.name}</b></div><a href="${fileObj.link}" target="_blank" class="file-link-btn"><span>📂</span><span>Download / Open File</span></a>`; addMessage(htmlContent, 'bot', true); }
-            }, 800);
+        window.removeAppIcon = function() { CONFIG.appIcon = ""; updateAppIconPreview(""); document.getElementById('manifest-icon-upload').value = ""; document.getElementById('manifest-icon-remove').style.display = 'none'; };
+        function updateAppIconPreview(base64) {
+            const preview = document.getElementById('manifest-icon-preview'); preview.innerHTML = '';
+            if(base64 && base64.length > 10) { const img = document.createElement('img'); img.src = base64; preview.appendChild(img); } else { preview.innerHTML = '<span>📲</span>'; }
         }
-    }
-    function goBack() {
-        addMessage("🔙 Back", 'user');
-        if (currentCategory) { currentCategory = null; const msg = replacePlaceholders(CONFIG.backDoctor, currentDoctor); botReply(msg, true); } 
-        else if (currentDoctor) { currentDoctor = null; const msg = replacePlaceholders(CONFIG.backSubject, currentSubject); botReply(msg, true); } 
-        else if (currentSubject) { currentSubject = null; botReply(CONFIG.backMain, true); } renderKeyboard();
-    }
+        window.saveAppManifest = function() {
+            const name = document.getElementById('manifest-app-name').value.trim(); if(!name) return showToast("App name cannot be empty", "error");
+            CONFIG.appVersion = (CONFIG.appVersion || 1) + 1;
+            const newConfig = { ...CONFIG, appName: name, appIcon: CONFIG.appIcon, appVersion: CONFIG.appVersion };
+            const saveBtn = document.querySelector('#tab-manifest .btn-save'); const originalText = saveBtn.innerText; saveBtn.innerText = "Updating...";
+            fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_ACCESS_KEY }, body: JSON.stringify(newConfig) })
+            .then(res => { if (!res.ok) throw new Error("Save failed"); showToast("✅ Settings Saved! Reloading...", "success"); CONFIG = { ...CONFIG, ...newConfig }; updateDynamicManifest(CONFIG.appName, CONFIG.appIcon);
+                if ('caches' in window) { caches.keys().then(names => { for (let name of names) caches.delete(name); }); }
+                setTimeout(() => { const baseUrl = window.location.href.split('?')[0]; window.location.href = `${baseUrl}?v=${CONFIG.appVersion}`; }, 1500);
+            })
+            .catch(err => { showToast("❌ Error: " + err.message, "error"); saveBtn.innerText = originalText; });
+        }
 
-    function handleDeepLink() {
-        const params = new URLSearchParams(window.location.search);
-        const subject = params.get('subject');
-        const doctor = params.get('doctor');
-        const action = params.get('action');
-
-        if (action === 'open_notification' && subject && doctor) {
-            window.history.replaceState({}, document.title, ".");
-            const subjectBtns = Array.from(document.querySelectorAll('.keyboard-btn'));
-            const subjectBtn = subjectBtns.find(btn => btn.innerText === subject);
+        // --- MODIFIED Auth Logic ---
+        window.handleMenuAuthClick = async function() {
+            document.getElementById('menu-dropdown').classList.remove('active');
+            if (!auth) return;
             
-            if (subjectBtn) {
-                subjectBtn.click();
-                setTimeout(() => {
-                    const doctorBtns = Array.from(document.querySelectorAll('.keyboard-btn'));
-                    const doctorBtn = doctorBtns.find(btn => btn.innerText === doctor);
-                    
-                    if (doctorBtn) {
-                        doctorBtn.click();
-                        setTimeout(() => {
-                            const catBtns = Array.from(document.querySelectorAll('.keyboard-btn'));
-                            const notifBtn = catBtns.find(btn => btn.innerText.includes("Notifications"));
-                            if (notifBtn) notifBtn.click();
-                        }, CONFIG.typingSpeed + 500);
-                    }
-                }, CONFIG.typingSpeed + 500);
-            }
-        }
-    }
-
-    // --- دالة اشعارات Capacitor (الجديدة) ---
-    async function setupCapacitorNotifications() {
-        // التحقق إذا كنا في بيئة Capacitor (تطبيق أصلي) وليس متصفح
-        if (!window.Capacitor) return;
-
-        try {
-            // طلب الإذن
-            let permStatus = await window.PushNotifications.checkPermissions();
-
-            if (permStatus.receive === 'prompt') {
-                permStatus = await window.PushNotifications.requestPermissions();
-            }
-
-            if (permStatus.receive !== 'granted') {
-                console.log('User denied permissions!');
+            const user = auth.currentUser;
+            
+            // 1. If user is already logged in, handle Admin Access
+            if (user) {
+                const email = user.email;
+                if (email === OWNER_EMAIL || (CONFIG.admins && CONFIG.admins.includes(email))) { 
+                    openAdminPanel(); 
+                } else {
+                    window.logoutUser();
+                }
                 return;
             }
 
-            // تسجيل المستخدم على خوادم جوجل
-            await window.PushNotifications.register();
-
-            // (أ) الحصول على التوكن الخاص بهذا الهاتف
-            window.PushNotifications.addListener('registration', (token) => {
-                console.log('My push token: ' + token.value);
-                
-                // سنعرض التوكن على شاشة البوت لكتابته وحفظه
-                showToast('تم تسجيل التوكن بنجاح! شاهده في الـ Console (F12)', 'success');
-                console.warn('انسخ هذا التوكن واحفظه:', token.value);
-            });
-
-            // (ب) عند وصول اشعار والشاشة مفتوحة
-            window.PushNotifications.addListener('pushNotificationReceived', (notification) => {
-                console.log('Push received: ' + JSON.stringify(notification));
-                
-                // عرض اشعار محلي لضمان ظهوره داخل التطبيق
-                window.LocalNotifications.schedule({
-                    notifications: [{
-                        title: notification.title,
-                        body: notification.body,
-                        id: Date.now(),
-                        schedule: { at: new Date() },
-                    }]
-                });
-            });
-
-            // (ج) عند الضغط على الاشعار في الخلفية
-            window.PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
-                console.log('Push action performed: ' + JSON.stringify(notification));
-            });
-        } catch (e) {
-            console.error("Error setting up notifications", e);
-        }
-    }
-
-    // *** الحل النهائي للتطبيقات (Fail-Safe Redirect) ***
-    window.onload = () => {
-        
-        // 1. تهيئة Firebase فوراً لضمان توفر الـ auth instance
-        if (!auth) { try { firebase.initializeApp(firebaseConfig); auth = firebase.auth(); } catch(e){} }
-        
-        // 2. معالجة خاصة لرابط التحقق (Auth Handler)
-        // هذه المشكلة تحدث في التطبيق حيث يتم التحويل إلى Redirect بدلاً من Popup
-        const currentUrl = window.location.href;
-        if (currentUrl.includes('/__/auth/handler')) {
+            // 2. If not logged in, perform Login
             
-            // لا نظهر أي واجهة، نتركها سوداء/بيضاء لمدة ثانية
-            // ولكن نقوم بمعالجة الرد
+            // Check if running on Native Platform (Android/iOS)
+            if (window.Capacitor && window.Capacitor.getPlatform() !== 'web') {
+                try {
+                    console.log("Attempting Native Google Auth...");
+                    
+                    // A. Call the Native Plugin
+                    const result = await window.FirebaseAuthentication.signInWithGoogle();
+                    
+                    if (!result || !result.credential) {
+                        throw new Error("Native login did not return credentials.");
+                    }
+
+                    // B. Create a Firebase Credential from the Native ID Token
+                    // This "syncs" the native login with the Web SDK so auth.currentUser updates
+                    const credential = firebase.auth.GoogleAuthProvider.credential(result.credential.idToken);
+                    
+                    // C. Sign in to Firebase Web Auth
+                    await auth.signInWithCredential(credential);
+                    
+                    console.log("Native Auth Synced with Firebase Web SDK");
+                    window.updateAuthUI(); 
+                    showToast("Native Login Successful ✅", "success");
+
+                } catch (err) {
+                    console.error("Native Auth Failed:", err);
+                    // Handle specific cancellation (user pressed back)
+                    if (err.message.includes('canceled') || err.code === 'auth/cancelled-popup-request') {
+                        showToast("Login Cancelled", "info");
+                    } else {
+                        showToast("Login Failed: " + (err.message || "Unknown Error"), "error");
+                    }
+                }
+            } 
+            // 3. Fallback for Web Browsers (GitHub Pages, Chrome, etc.)
+            else {
+                try {
+                    const provider = new firebase.auth.GoogleAuthProvider();
+                    const result = await auth.signInWithPopup(provider);
+                    window.updateAuthUI(); 
+                    showToast("Web Login Successful", "success");
+                } catch (error) {
+                    showToast("Login Failed: " + error.message, "error");
+                }
+            }
+        };
+
+        window.logoutUser = async function() {
+            if (auth) {
+                await auth.signOut();
+                // Sign out of native layer too if applicable
+                if (window.Capacitor && window.Capacitor.getPlatform() !== 'web') {
+                    try { await window.FirebaseAuthentication.signOut(); } catch(e){}
+                }
+                window.location.reload();
+            }
+        };
+
+        function initFirebaseAuth() { 
+            if (!auth) return; 
+            auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+            .then(() => { auth.onAuthStateChanged((user) => { isAuthInitialized = true; window.updateAuthUI(); }); })
+            .catch((error) => { auth.onAuthStateChanged((user) => { isAuthInitialized = true; window.updateAuthUI(); }); });
+        }
+        window.updateAuthUI = function() {
+            if (!isAuthInitialized) return;
+            const loginBtn = document.getElementById('google-login-btn'); const loginText = document.getElementById('auth-text'); const loginIcon = document.getElementById('auth-icon');
+            const user = auth ? auth.currentUser : null;
+            if (user) {
+                const email = user.email;
+                if (email === OWNER_EMAIL) { loginText.innerText = "Admin Panel"; loginIcon.innerText = "⚙️"; loginBtn.classList.add('is-owner'); }
+                else if (CONFIG.admins && CONFIG.admins.includes(email)) { loginText.innerText = "Admin Panel"; loginIcon.innerText = "⚙️"; loginBtn.classList.add('is-admin'); }
+                else { loginText.innerText = "Sign Out"; loginIcon.innerText = "🚪"; loginBtn.classList.remove('is-owner', 'is-admin'); }
+            } else { loginText.innerText = "Sign In"; loginIcon.innerText = "🌐"; loginBtn.classList.remove('is-owner', 'is-admin'); }
+        }
+
+        // --- Sync & Start ---
+        function startSync() { if(refreshInterval) clearInterval(refreshInterval); refreshInterval = setInterval(fetchConfig, 15000); }
+        function stopSync() { if(refreshInterval) { clearInterval(refreshInterval); refreshInterval = null; } }
+        function handleDeepLink() {
+            const params = new URLSearchParams(window.location.search);
+            const subject = params.get('subject'); const doctor = params.get('doctor'); const action = params.get('action');
+            if (action === 'open_notification' && subject && doctor) {
+                window.history.replaceState({}, document.title, ".");
+                const subjectBtns = Array.from(document.querySelectorAll('.keyboard-btn')); const subjectBtn = subjectBtns.find(btn => btn.innerText === subject);
+                if (subjectBtn) {
+                    subjectBtn.click();
+                    setTimeout(() => {
+                        const doctorBtns = Array.from(document.querySelectorAll('.keyboard-btn')); const doctorBtn = doctorBtns.find(btn => btn.innerText === doctor);
+                        if (doctorBtn) {
+                            doctorBtn.click();
+                            setTimeout(() => {
+                                const catBtns = Array.from(document.querySelectorAll('.keyboard-btn')); const notifBtn = catBtns.find(btn => btn.innerText.includes("Notifications"));
+                                if (notifBtn) notifBtn.click();
+                            }, CONFIG.typingSpeed + 500);
+                        }
+                    }, CONFIG.typingSpeed + 500);
+                }
+            }
+        }
+        
+        // --- Capacitor Notifications ---
+        async function setupCapacitorNotifications() {
+            if (!window.Capacitor) return;
+            try {
+                let permStatus = await window.PushNotifications.checkPermissions();
+                if (permStatus.receive === 'prompt') { permStatus = await window.PushNotifications.requestPermissions(); }
+                if (permStatus.receive !== 'granted') { console.log('User denied permissions!'); return; }
+                await window.PushNotifications.register();
+                window.PushNotifications.addListener('registration', (token) => { console.log('My push token: ' + token.value); showToast('Token Registered (Check Console)', 'success'); });
+                window.PushNotifications.addListener('pushNotificationReceived', (notification) => { console.log('Push received: ' + JSON.stringify(notification)); window.LocalNotifications.schedule({ notifications: [{ title: notification.title, body: notification.body, id: Date.now(), schedule: { at: new Date() } }] }); });
+                window.PushNotifications.addListener('pushNotificationActionPerformed', (notification) => { console.log('Push action performed: ' + JSON.stringify(notification)); });
+            } catch (e) { console.error("Error setting up notifications", e); }
+        }
+
+        // --- Main OnLoad ---
+        window.onload = () => {
+            if (!auth) { try { firebase.initializeApp(firebaseConfig); auth = firebase.auth(); } catch(e){} }
+            const currentUrl = window.location.href;
+            if (currentUrl.includes('/__/auth/handler')) {
+                document.body.innerHTML = "<h1 style='color:#fff; text-align:center; margin-top:20vh; font-family:sans-serif'>Finalizing Login... ✨</h1><p style='color:#94a3b8; text-align:center'>Please wait...</p>";
+                auth.getRedirectResult().then((result) => { window.location.replace(window.location.origin); }).catch((error) => { window.location.replace(window.location.origin); });
+                setTimeout(() => { if (window.location.href.includes('/__/auth/handler')) window.location.replace(window.location.origin); }, 2000); return; 
+            }
+
+            if ('serviceWorker' in navigator) { navigator.serviceWorker.register(swUrl).then(reg => console.log("SW Registered", reg)).catch(err => console.error("SW Fail:", err)); }
+            initFirebaseAuth(); 
             
-            // استدعاء getRedirectResult لمعالجة العملية وضبط الكوكيز
-            auth.getRedirectResult()
-                .then((result) => {
-                    // النجاح: المستخدم موجود
-                    console.log("Redirect Result:", result);
-                    // العودة للصفحة الرئيسية. LocalStorage سيحتفظ بالجلسة.
-                    window.location.replace(window.location.origin);
-                })
-                .catch((error) => {
-                    // الفشل: قد يكون "Missing Initial State" أو إلغاء المستخدم
-                    // النصيحة الحقيقية: حتى لو حدث خطأ، نعود للصفحة الرئيسية
-                    // لأننا وضعنا Persistence = Local، فإذا كان المستخدم مسجلاً قبل ذلك، سيعود له
-                    // وإذا لم يكن، سيظهر له زر تسجيل الدخول.
-                    console.error("Redirect Error (Safe to ignore):", error);
-                    window.location.replace(window.location.origin);
-                });
+            const loadingScreen = document.getElementById('loading-screen');
+            setTimeout(() => { loadingScreen.style.opacity = '0'; setTimeout(() => { loadingScreen.style.display = 'none'; }, 300); }, 1500);
+            
+            const welcomeMsg = replacePlaceholders(CONFIG.welcomeMessage, null); botReply(welcomeMsg, true); renderKeyboard(); 
 
-            // Safety net: إذا لم يتم تنفيذ الوعد فوقه لسبب ما
-            setTimeout(() => {
-                if (window.location.href.includes('/__/auth/handler')) {
-                    window.location.replace(window.location.origin);
-                }
-            }, 2000); // 2 ثواني فقط
-
-            return; // نوقف تحميل باقي التطبيق
-        }
-
-        // 3. التحميل العادي للتطبيق
-        // تسجيل الـ Service Worker (يحدث في الخلفية)
-        if ('serviceWorker' in navigator) { 
-            navigator.serviceWorker.register('./sw.js')
-            .then(reg => { 
-                console.log("SW Registered", reg);
-                if ('periodicSync' in reg) {
-                    return reg.periodicSync.register('check-doctor-msg', {
-                        minInterval: 15 * 60 * 1000 
-                    }).catch(err => console.log('Periodic Sync failed:', err));
-                }
-            }).catch(err => console.error("SW Fail:", err)); 
-        }
-
-        // بدء مصادقة Firebase مع LOCAL Persistence
-        initFirebaseAuth(); 
-        
-        // التعامل مع الشاشة: نظهر التطبيق فوراً ونضع اللودينج فوقه فقط
-        const loadingScreen = document.getElementById('loading-screen');
-        const appContainer = document.querySelector('.app-container');
-        
-        // إخفاء الشاشة البيضاء (اللودينج) بعد ثانية ونصف بغض النظر عن حالة الشبكة
-        setTimeout(() => {
-            loadingScreen.style.opacity = '0';
-            setTimeout(() => {
-                loadingScreen.style.display = 'none';
-            }, 300);
-        }, 1500);
-
-        // عرض الواجهة بالبيانات الافتراضية فوراً (لمنع الشاشة البيضاء)
-        const welcomeMsg = replacePlaceholders(CONFIG.welcomeMessage, null); 
-        botReply(welcomeMsg, true); 
-        renderKeyboard(); 
-
-        // محاولة جلب البيانات الحقيقية في الخلفية (Non-blocking)
-        fetchConfig()
-            .then(() => {
-                showToast("🎉 Synced with Cloud", "success");
-            })
-            .catch(err => {
-                console.error("Initial Sync Failed", err);
-                showToast("⚠️ Offline Mode: Using cached data", "error");
-            });
-
-        // تشغيل باقي الوظائف
-        handleDeepLink();
-        setupCapacitorNotifications();
-        startSync();
-    };
-</script>
+            fetchConfig().then(() => showToast("🎉 Synced with Cloud", "success")).catch(err => { console.error("Initial Sync Failed", err); showToast("⚠️ Offline Mode", "error"); });
+            
+            handleDeepLink(); setupCapacitorNotifications(); startSync();
+        };
+    </script>
 </body>
 </html>
