@@ -73,7 +73,7 @@
         .bot-avatar {
             width: 45px; height: 45px; border-radius: var(--radius-full); background: var(--accent-gradient);
             display: flex; justify-content: center; align-items: center; font-size: 24px; flex-shrink: 0;
-            background-size: cover; background-position: center; border: 2px solid rgba(255,255,255, 0.2);
+            background-size: cover; background-position: center; border: 2px solid rgba(255, 255, 255, 0.2);
             box-shadow: 0 2px 10px rgba(59, 130, 246, 0.4); color: #fff; text-align: center; overflow: hidden;
         }
 
@@ -111,7 +111,7 @@
             padding: 14px 20px; cursor: pointer; color: #cbd5e1; font-size: 14px; font-weight: 500;
             display: flex; align-items: center; gap: 12px; transition: all 0.2s; direction: ltr;
         }
-        .menu-item:hover { background: rgba(255,255,255, 0.05); color: #fff; padding-left: 25px; }
+        .menu-item:hover { background: rgba(255, 255, 255, 0.05); color: #fff; padding-left: 25px; }
         .menu-item.danger { color: #f87171; }
         .menu-item.notif-toggle { color: #fbbf24; }
         .menu-item.install-btn { color: #4ade80; background: rgba(74, 222, 128, 0.1); }
@@ -154,7 +154,7 @@
         .notif-header { display: flex; justify-content: space-between; font-size: 11px; color: #f97316; margin-bottom: 6px; font-weight: 700; text-transform: uppercase; }
 
         .file-link-btn {
-            display: flex; align-items: center; gap: 12px; background: rgba(255,255,255, 0.1);
+            display: flex; align-items: center; gap: 12px; background: rgba(255,255, 255, 0.1);
             padding: 10px; border-radius: var(--radius-md); text-decoration: none; color: #fff;
             margin-top: 5px; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 14px;
             cursor: pointer; transition: all 0.2s; box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.05);
@@ -622,7 +622,7 @@
     <script>
         /**
          * University Bot Pro - Single File Implementation
-         * Includes: LocalStorage Persistence & Fetch + Blob Logic for Offline Support
+         * Includes: LocalStorage Persistence (Offline Sync) & Google Docs Viewer Fix
          */
 
         // --- Configuration & Constants ---
@@ -811,37 +811,18 @@
         }
 
         // ==========================================
-        // الحل النهائي: Fetch + Blob URL (استخدام الكاش المحلي)
-        // هذا الحل يطلب الملف عبر SW. إذا موجود في الكاش يفتح أوفلاين فوراً
+        // الحل النهائي: Google Docs Viewer (لمنع التكرار)
         // ==========================================
-        async function openFileNative(url, fileName) {
-            try {
-                // 1. طلب الملف باستخدام Fetch
-                // الـ Service Worker (sw.js) سيعترض الطلب:
-                // - لو عند نت: يحمّله ويخزنه في الكاش.
-                // - لو أوفلاين: يطلعه من الكاش فوراً.
-                const response = await fetch(url);
-                
-                if (!response.ok) throw new Error("فشل الاتصال");
-                
-                // 2. تحويل الملف إلى كائن Blob (مكعب بيانات ثنائي)
-                // هذا الخطوة تخلي "الرابط الخارجي" يتحول لـ "ملف محلي" داخل المتصفح
-                const blob = await response.blob();
-                
-                // 3. إنشاء رابط محلي للملف (Blob URL)
-                // هذا الرابط يبدأ بـ blob: وهو موجود فقط في هذه الجلسة
-                const blobUrl = URL.createObjectURL(blob);
-                
-                // 4. فتح الرابط المحلي
-                // عند فتح Blob URL لمستخدم PDF، الموبايل يطلع قائمة "Complete action using"
-                window.open(blobUrl, '_blank');
-                
-                // 5. تنظيف الذاكرة بعد فترة (لمنع تسرب الذاكرة)
-                setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-                
-            } catch (error) {
-                console.error("Error opening file:", error);
-                // 6. في حال فشل كل شيء، نرجع لفتح الرابط المباشر
+        function openFileNative(url, fileName) {
+            // 1. التحقق إذا كان الملف PDF
+            if (fileName.toLowerCase().includes('.pdf') || url.toLowerCase().includes('.pdf')) {
+                // 2. استخدام عارض جوجل (Google Docs Viewer)
+                // هذا الحل يحل مشكلة التحميل المتكرر لأنه يعرض الملف فقط
+                // ويعطيك زرار "Download" واضح داخل العارض
+                const googleViewerUrl = `https://docs.google.com/viewer?embedded=true&url=${encodeURIComponent(url)}&nopreview=1`;
+                window.open(googleViewerUrl, '_blank');
+            } else {
+                // 3. إذا كان الملف صورة أو ملف آخر، افتحه عادي
                 window.open(url, '_blank');
             }
         }
@@ -990,7 +971,7 @@
             const amt = Math.round(2.55 * percent);
             const R = (rgb.r - amt) < 0 ? 0 : rgb.r - amt;
             const G = (rgb.g - amt) < 0 ?0 : rgb.g - amt;
-            const B = (rgb.b - amt) < 0 ?0 : rgb.b - amt;
+            const B = (rgb.b - amt) < 0 ? 0 : rgb.b - amt;
             return "#" + (0x1000000 + (R << 16) + (G << 8) + B).toString(16).slice(1);
         }
 
