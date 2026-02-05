@@ -709,15 +709,64 @@
         try { firebase.initializeApp(firebaseConfig); auth = firebase.auth(); } catch (e) { console.log("Firebase already initialized or error:", e); }
 
         // --- Service Worker (Blob Technique for Single File) ---
+        // UPDATED: Advanced Caching for Offline File Access
         const swCode = `
-            const CACHE_NAME = 'uni-bot-cache-v1';
-            self.addEventListener('install', e => { e.waitUntil(self.skipWaiting()); });
-            self.addEventListener('activate', e => { e.waitUntil(self.clients.claim()); });
+            const CACHE_NAME = 'uni-bot-cache-v2'; // New version to force update
+            
+            // 1. Installation: Cache the root page
+            self.addEventListener('install', e => { 
+                e.waitUntil(
+                    caches.open(CACHE_NAME).then(cache => {
+                        return cache.add('./');
+                    })
+                );
+                self.skipWaiting(); 
+            });
+
+            self.addEventListener('activate', e => { 
+                e.waitUntil(self.clients.claim()); 
+            });
+
+            // 2. Fetch Logic
             self.addEventListener('fetch', e => {
+                const url = new URL(e.request.url);
+
+                // Strategy (A): For JSONBin Data -> Always Network (We want fresh data)
+                if (url.hostname.includes('jsonbin.io')) {
+                    e.respondWith(fetch(e.request));
+                    return;
+                }
+
+                // Strategy (B): For Files and Images -> Cache First, then Network
+                // This allows offline access to previously viewed files
                 e.respondWith(
-                    caches.match(e.request).then(res => res || fetch(e.request))
+                    caches.match(e.request).then(res => {
+                        // If in cache, return it immediately
+                        if (res) {
+                            return res; 
+                        }
+                        
+                        // If not, fetch from network
+                        return fetch(e.request).then(networkRes => {
+                            // Check if we received a valid response
+                            if(!networkRes || networkRes.status !== 200) {
+                                return networkRes;
+                            }
+                            // Clone the response to cache it
+                            const resToCache = networkRes.clone();
+                            caches.open(CACHE_NAME).then(cache => {
+                                cache.put(e.request, resToCache);
+                            });
+                            return networkRes;
+                        });
+                    }).catch(() => {
+                        // If both cache and network fail
+                        return new Response("No internet connection and file not cached.");
+                    })
                 );
             });
+
+            // Notification Handling
             self.addEventListener('message', (event) => {
                 if (event.data && event.data.type === 'TEST_NOTIF') {
                     self.registration.showNotification("🧪 Test Successful", { 
