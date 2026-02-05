@@ -24,32 +24,26 @@
 
     <style>
         :root {
-            /* Default Color Palette - Will be overridden by JS */
+            /* Default Color Palette */
             --bg-dark: #0f172a;
             --bg-glass: rgba(15, 23, 42, 0.85);
             --bg-glass-heavy: rgba(15, 23, 42, 0.95);
-            --accent-primary: #3b82f6; /* Dynamic User Color */
-            --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); /* Dynamic User Gradient */
-            --msg-bot-bg: rgba(255, 255, 255, 0.1); /* Dynamic Bot Color */
-            --msg-user-bg: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); /* Dynamic User Gradient */
-            
+            --accent-primary: #3b82f6;
+            --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            --msg-bot-bg: rgba(255, 255, 255, 0.1);
+            --msg-user-bg: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
             --text-primary: #f8fafc;
             --text-secondary: #94a3b8;
             --border-color: rgba(255, 255, 255, 0.1);
-            
-            /* UI Elements */
             --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             --glass-blur: blur(16px);
             --radius-md: 12px;
             --radius-lg: 20px;
             --radius-full: 999px;
-            
-            /* Typography Defaults */
             --font-en: 'Inter', sans-serif;
             --font-ar: 'Cairo', sans-serif;
         }
 
-        /* Reset & Base Styles */
         * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
         
         html, body {
@@ -61,14 +55,12 @@
             color: var(--text-primary);
         }
 
-        /* Main App Layout */
         .app-container {
             width: 100%; max-width: 500px; height: 100%; margin: 0 auto;
             display: flex; flex-direction: column; position: relative;
             box-shadow: 0 0 50px rgba(0, 0, 0, 0.5); z-index: 10;
         }
 
-        /* Header Section */
         header {
             padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;
             background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(16px);
@@ -105,7 +97,6 @@
         .header-actions { color: var(--text-secondary); font-size: 26px; cursor: pointer; padding: 5px; transition: color 0.2s; }
         .header-actions:hover { color: #fff; }
 
-        /* Dropdown Menu */
         .menu-dropdown {
             position: absolute; top: 70px; width: 280px; background: rgba(15, 23, 42, 0.95);
             backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
@@ -127,7 +118,6 @@
 
         @keyframes slideDown { from { opacity: 0; transform: translateY(-20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
-        /* Chat Area */
         #chat-area {
             flex: 1; padding: 20px 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
             scroll-behavior: smooth; background-color: transparent; direction: ltr;
@@ -148,7 +138,6 @@
             margin-top: 6px; user-select: none;
         }
 
-        /* Special Message Types */
         .broadcast-msg {
             background: linear-gradient(145deg, rgba(234, 179, 8, 0.15), rgba(234, 179, 8, 0.05));
             border: 1px solid rgba(234, 179, 8, 0.4); border-left: 3px solid #eab308;
@@ -173,7 +162,6 @@
         }
         .file-link-btn:hover { background: rgba(255, 255, 255, 0.15); transform: translateY(-2px); }
 
-        /* Interactive Keyboard */
         #keyboard-area {
             background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
             padding: 12px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
@@ -195,7 +183,6 @@
 
         @keyframes messagePop { from { opacity: 0; transform: translateY(20px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
-        /* Modals & Overlays */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); z-index: 9999;
@@ -221,13 +208,11 @@
         }
         .alert-btn:active, .ui-btn:active { transform: scale(0.96); }
 
-        /* Install Guide Steps */
         .install-step { margin-bottom: 15px; display: flex; align-items: flex-start; gap: 10px; }
         .install-icon { font-size: 24px; background: rgba(255, 255, 255, 0.1); padding: 8px; border-radius: 50%; }
         .install-text h4 { margin: 0 0 5px 0; color: #fff; font-size: 15px; }
         .install-text p { margin: 0; color: #94a3b8; font-size: 13px; line-height: 1.4; }
 
-        /* Admin Panel Styles */
         .admin-modal {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -275,7 +260,6 @@
         }
         .form-textarea { height: 90px; resize: vertical; }
 
-        /* Color Inputs */
         input[type="color"] {
         appearance: none;
             -webkit-appearance: none;
@@ -312,7 +296,6 @@
         }
         .btn-delete:hover { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
 
-        /* Admin Data List */
         .data-list { display: flex; flex-direction: column; gap: 10px; max-height: 40vh; overflow-y: auto; }
         .data-item {
             background: rgba(255, 255, 255, 0.03); padding: 12px; border-radius: var(--radius-md);
@@ -323,7 +306,6 @@
         .btn-del { background: rgba(239, 68, 68, 0.2); color: #f87171; }
         .btn-edit { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
 
-        /* Toast Notifications */
         #toast-container {
             position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
             display: flex; flex-direction: column; gap: 10px; z-index: 9998;
@@ -339,19 +321,16 @@
         .toast.success { border-left: 4px solid #22c55e; }
         .toast.error { border-left: 4px solid #ef4444; }
 
-        /* Animations */
         @keyframes toastIn { from { opacity: 0; transform: translateY(30px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUpFade { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-        /* Typing Indicator */
         .typing-indicator {
             font-size: 12px; color: var(--text-secondary); margin-left: 15px; margin-bottom: 10px;
             display: none; font-style: italic; opacity: 0.7; font-weight: 600; direction: ltr; text-align: left;
         }
         .typing-indicator.active { display: block; }
 
-        /* Admin Header */
         .admin-header-top {
             display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.7);
             backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
@@ -361,7 +340,6 @@
         .close-modal { font-size: 32px; color: #64748b; cursor: pointer; line-height: 1; transition: color 0.2s; }
         .close-modal:hover { color: #fff; }
 
-        /* Manifest Preview */
         .manifest-preview {
             width: 120px; height: 120px; border-radius: 24px; background: rgba(255, 255, 255, 0.1);
             border: 2px solid var(--border-color); margin: 0 auto 20px auto;
@@ -371,7 +349,6 @@
         .manifest-preview img { width: 100%; height: 100%; object-fit: cover; }
         .manifest-preview span { font-size: 40px; color: rgba(255, 255, 255, 0.2); }
 
-        /* Loading Screen */
         #loading-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background-color: var(--bg-dark); background-image: radial-gradient(at 50% 50%, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
@@ -447,8 +424,6 @@
     </div>
 
     <!-- Modals -->
-
-    <!-- Visual Alert Modal -->
     <div id="visual-alert-overlay" class="modal-overlay">
         <div class="visual-alert-card">
             <span class="alert-icon">🔔</span>
@@ -458,7 +433,6 @@
         </div>
     </div>
 
-    <!-- Install Guide Modal -->
     <div id="install-guide-overlay" class="modal-overlay">
         <div class="install-guide-box">
             <div class="alert-title" style="text-align:center;">Install App 📲</div>
@@ -468,7 +442,6 @@
                 <div class="install-text">
                     <h4>Android (Chrome)</h4>
                     <p>Tap <b>"Install App"</b> button in menu above, or look for "Add to Home Screen" in browser menu (⋮).</p>
-                    <p style="color:#f87171;font-size:12px;margin-top:5px;">⚠️ <b>Important:</b> Disable Battery Optimization for Chrome in Settings to ensure notifications work in background!</p>
                 </div>
             </div>
             <div id="guide-ios" class="install-step">
@@ -476,14 +449,12 @@
                 <div class="install-text">
                     <h4>iPhone (Safari)</h4>
                     <p>Tap <b>Share</b> button (square with arrow) → Scroll down → Tap <b>"Add to Home Screen"</b>.</p>
-                    <p style="color:#f87171;font-size:12px;margin-top:5px;">⚠️ <b>Note:</b> iOS is strict. Notifications might only appear when you open app or wake up screen.</p>
                 </div>
             </div>
             <button class="alert-btn" onclick="document.getElementById('install-guide-overlay').classList.remove('active')" style="width:100%;">Close</button>
         </div>
     </div>
 
-    <!-- Input/Confirm Modal -->
     <div id="ui-modal-overlay" class="modal-overlay">
         <div class="ui-modal-box">
             <div class="ui-modal-title" id="ui-modal-title" style="font-size:18px;font-weight:700;color:#fff;margin-bottom:10px;">Title</div>
@@ -496,7 +467,6 @@
         </div>
     </div>
 
-    <!-- Toast Container -->
     <div id="toast-container"></div>
 
     <!-- Admin Panel -->
@@ -518,7 +488,6 @@
                 <div style="text-align: left;margin-bottom: 20px;">
                     <span onclick="window.logoutUser()" style="cursor: pointer; color: #f87171; font-size: 13px; font-weight: 600;">Sign Out 🚪</span>
                 </div>
-                
                 <div id="owner-theme-section" style="display: none;">
                     <div class="admin-section-title" style="color: #fbbf24;">Theme Colors (Owner Only)</div>
                     <div class="form-group" style="display: flex; gap: 15px;">
@@ -531,9 +500,7 @@
                             <input type="color" id="color-bot-input" value="#ffffff">
                         </div>
                     </div>
-                    <p style="font-size:11px; color:#94a3b8; margin-top:-10px; margin-bottom: 20px;">Primary color affects buttons and student messages. Bot color adds a tint to bot messages (Glassy effect).</p>
                 </div>
-
                 <div id="owner-typography-section" style="display: none;">
                     <div class="admin-section-title" style="color: #fbbf24;">Typography (Owner Only)</div>
                     <div class="form-group">
@@ -647,9 +614,6 @@
                     <button class="btn-sm btn-del" id="manifest-icon-remove" onclick="window.removeAppIcon()" style="display:none; width:auto; margin-top:8px;">Remove Icon</button>
                     <p style="font-size:11px; color:#64748b; margin-top:5px;">Image will be resized to 512x512 for sharp look.</p>
                 </div>
-                <p style="font-size:12px; color:#fbbf24; background:rgba(251, 191, 36, 0.1); padding:10px; border-radius:8px; text-align:center; border:1px solid rgba(251,191,36,0.2); margin-bottom:15px;">
-                    ⚠️ Note: Changing icon/name requires users to <b>Uninstall</b> and <b>Re-install</b> app to see changes.
-                </p>
                 <button class="btn-save" style="background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%); box-shadow: 0 4px 15px rgba(168, 85, 247, 0.3);" onclick="window.saveAppManifest()">Update App Settings</button>
             </div>
         </div>
@@ -658,7 +622,6 @@
     <script>
         /**
          * University Bot Pro - Single File Implementation
-         * Features: Firebase Auth, JSONBin Sync, PWA, Admin Panel, Notifications, Live Theme, Offline File Access
          */
 
         // --- Configuration & Constants ---
@@ -685,16 +648,14 @@
             generalBroadcast: { active: false, title: "", body: "", timestamp: 0 },
             englishFont: "'Inter', sans-serif", arabicFont: "'Cairo', sans-serif",
             appName: "UniBot Pro", appIcon: "", appVersion: 1,
-            // NEW: Theme Config
-            themeColor: "#3b82f6", // Blue (Student/Buttons)
-            botMsgColor: "#ffffff", // White (Bot BG)
+            themeColor: "#3b82f6",
+            botMsgColor: "#ffffff",
             welcomeMessage: "Welcome! 🎓<br>This is <b>{botName}</b>.<br>Please select a subject to begin.",
             subjectPrompt: "<b>{name}</b>\nPlease select a Doctor 👇", doctorPrompt: "<b>{name}</b>\nSelect a section 👇",
             categoryPrompt: "<b>{name}</b> list:", backSubject: "Back to <b>{name}</b> doctors:",
             backDoctor: "Back to <b>{name}</b> sections:", backMain: "Back to Main Menu.", database: defaultDatabase
         };
 
-        // --- State Variables ---
         let CONFIG = { ...defaultConfig };
         let database = CONFIG.database;
         let auth, isAuthInitialized = false;
@@ -705,85 +666,10 @@
         let currentAdminTab = 0;
         let currentModalCallback = null;
 
-        // --- Initialization ---
         try { firebase.initializeApp(firebaseConfig); auth = firebase.auth(); } catch (e) { console.log("Firebase already initialized or error:", e); }
 
-        // --- Service Worker (Blob Technique for Single File) ---
-        // UPDATED: Advanced Caching for Offline File Access
-        const swCode = `
-            const CACHE_NAME = 'uni-bot-cache-v2'; // New version to force update
-            
-            // 1. Installation: Cache the root page
-            self.addEventListener('install', e => { 
-                e.waitUntil(
-                    caches.open(CACHE_NAME).then(cache => {
-                        return cache.add('./');
-                    })
-                );
-                self.skipWaiting(); 
-            });
-
-            self.addEventListener('activate', e => { 
-                e.waitUntil(self.clients.claim()); 
-            });
-
-            // 2. Fetch Logic
-            self.addEventListener('fetch', e => {
-                const url = new URL(e.request.url);
-
-                // Strategy (A): For JSONBin Data -> Always Network (We want fresh data)
-                if (url.hostname.includes('jsonbin.io')) {
-                    e.respondWith(fetch(e.request));
-                    return;
-                }
-
-                // Strategy (B): For Files and Images -> Cache First, then Network
-                // This allows offline access to previously viewed files
-                e.respondWith(
-                    caches.match(e.request).then(res => {
-                        // If in cache, return it immediately
-                        if (res) {
-                            return res; 
-                        }
-                        
-                        // If not, fetch from network
-                        return fetch(e.request).then(networkRes => {
-                            // Check if we received a valid response
-                            if(!networkRes || networkRes.status !== 200) {
-                                return networkRes;
-                            }
-                            // Clone the response to cache it
-                            const resToCache = networkRes.clone();
-                            caches.open(CACHE_NAME).then(cache => {
-                                cache.put(e.request, resToCache);
-                            });
-                            return networkRes;
-                        });
-                    }).catch(() => {
-                        // If both cache and network fail
-                        return new Response("No internet connection and file not cached.");
-                    })
-                );
-            });
-
-            // Notification Handling
-            self.addEventListener('message', (event) => {
-                if (event.data && event.data.type === 'TEST_NOTIF') {
-                    self.registration.showNotification("🧪 Test Successful", { 
-                        body: "Notifications are working.", 
-                        icon: event.data.icon || "https://cdn-icons-png.flaticon.com/512/2991/2991148.png" 
-                    });
-                }
-                if (event.data && event.data.type === 'SYNCED_NOTIF_DOCTOR') {
-                    self.registration.showNotification("📢 New Update Available", { 
-                        body: event.data.body, 
-                        icon: event.data.icon || "https://cdn-icons-png.flaticon.com/512/2991/2991148.png" 
-                    });
-                }
-            });
-        `;
-        const swBlob = new Blob([swCode], {type: 'application/javascript'});
-        const swUrl = URL.createObjectURL(swBlob);
+        // --- Service Worker Registration (External File) ---
+        const swUrl = 'sw.js';
 
         // --- UI Logic ---
         const chatArea = document.getElementById('chat-area');
@@ -845,12 +731,10 @@
         });
         document.getElementById('ui-modal-overlay').addEventListener('click', (e) => { if(e.target.id === 'ui-modal-overlay') closeUiModal(); });
 
-        // --- Chat & Bot Logic ---
         function addMessage(content, sender, isHtml = false) {
             const msgDiv = document.createElement('div'); 
             msgDiv.classList.add('message', sender === 'bot' ? 'msg-bot' : 'msg-user');
             if (isHtml) msgDiv.innerHTML = content; else msgDiv.innerText = content;
-            
             const timeSpan = document.createElement('span'); 
             timeSpan.classList.add('timestamp'); 
             timeSpan.innerText = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); 
@@ -926,29 +810,29 @@
         }
 
         // ==========================================
-        // UPDATED: Smart File Opening Logic
+        // Smart File Opening (With MIME Type)
         // ==========================================
-        
         async function openFileBlob(url, fileName) {
-            showToast("🔄 جاري تجهيز الملف...", "info");
+            showToast("🔄 جاري تحضير الملف...", "info");
             try {
-                // 1. محاولة جلب الملف (سيأتي من الذاكرة المخفية إذا كانت الإنترنت مقطوعة)
+                // Fetch will automatically hit the Service Worker cache if offline
                 const response = await fetch(url);
                 if (!response.ok) throw new Error("فشل الاتصال");
 
-                // 2. تحويل الملف لـ Blob (كائن ثنائي) داخل المتصفح
+                // Get the MIME type from the headers to help the browser decide
+                const mimeType = response.headers.get('content-type') || 'application/octet-stream';
                 const blob = await response.blob();
                 
-                // 3. إنشاء رابط مؤقت لهذا الملف في الذاكرة
-                const blobUrl = URL.createObjectURL(blob);
+                // Create a File object (better than Blob for opening in external apps on some platforms)
+                const file = new File([blob], fileName, { type: mimeType });
+                const blobUrl = URL.createObjectURL(file);
                 
-                // 4. فتح الرابط في نافذة جديدة (سيعرضه القارئ مباشرة)
+                // Open in new tab
                 window.open(blobUrl, '_blank');
                 
                 showToast("✅ تم الفتح", "success");
             } catch (error) {
                 console.error(error);
-                // في حالة فشل الحيلة (نادر جداً)، نعود للطريقة القديمة (رابط تليجرام)
                 window.open(url, '_blank');
                 showToast("⚠️ جاري الفتح من المصدر...", "error");
             }
@@ -967,12 +851,11 @@
                         const htmlContent = `<div style="margin-bottom:5px;">📎 <b>${fileObj.name}</b></div><div style="background:rgba(239,68,68,0.1); color:#fca5a5; padding:10px; border-radius:8px; border:1px solid rgba(239,68,68,0.2); font-size:13px;"><span>⚠️</span><span>Link not configured</span></div>`; 
                         addMessage(htmlContent, 'bot', true); 
                     } else { 
-                        // التعديل هنا: استخدام الزر الجديد
                         const htmlContent = `
                             <div style="margin-bottom:5px;">📎 <b>${fileObj.name}</b></div>
                             <div onclick="openFileBlob('${fileObj.link}', '${fileObj.name.replace(/'/g, "\\'")}')" 
                                  class="file-link-btn" style="cursor:pointer;">
-                                <span>👁️</span><span>عرض / فتح الملف مباشرة</span>
+                                <span>👁️</span><span>عرض / فتح الملف</span>
                             </div>
                         `; 
                         addMessage(htmlContent, 'bot', true);
@@ -1010,7 +893,6 @@
             });
         };
 
-        // --- PWA & Install Logic ---
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
@@ -1057,7 +939,6 @@
             appleLink.href = iconData && iconData.length > 10 ? iconData : "https://cdn-icons-png.flaticon.com/512/2991/2991148.png";
         }
 
-        // --- Image Processing ---
         function compressImage(file, callback) {
             const reader = new FileReader(); reader.readAsDataURL(file);
             reader.onload = (event) => {
@@ -1086,7 +967,6 @@
             };
         }
 
-        // --- Helper: Hex to RGB & Darken ---
         function hexToRgb(hex) {
             var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
             return result ? {
@@ -1106,7 +986,6 @@
             return "#" + (0x1000000 + (R << 16) + (G << 8) + B).toString(16).slice(1);
         }
 
-        // --- Data Sync & Configuration ---
         function fetchConfig() {
             return fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, { headers: { 'X-Master-Key': JSONBIN_ACCESS_KEY, 'X-Bin-Meta': 'false' } })
             .then(res => { if (!res.ok) throw new Error("Failed"); return res.json(); })
@@ -1146,29 +1025,23 @@
             document.documentElement.style.setProperty('--font-en', CONFIG.englishFont || "'Inter', sans-serif");
             document.documentElement.style.setProperty('--font-ar', CONFIG.arabicFont || "'Cairo', sans-serif");
 
-            // --- Apply Theme Colors ---
             const primaryHex = CONFIG.themeColor || "#3b82f6";
             const botColorHex = CONFIG.botMsgColor || "#ffffff";
             const botRgb = hexToRgb(botColorHex);
             
-            // Update Primary Color (User Messages, Buttons, Accents)
             document.documentElement.style.setProperty('--accent-primary', primaryHex);
-            // Generate Gradient for User Messages
             const darkerHex = darkenColor(primaryHex, 30);
             const userGradient = `linear-gradient(135deg, ${primaryHex} 0%, ${darkerHex} 100%)`;
             document.documentElement.style.setProperty('--accent-gradient', userGradient);
             document.documentElement.style.setProperty('--msg-user-bg', userGradient);
 
-            // Update Bot Color (Glassy effect with 0.1 opacity)
             if (botRgb) {
                 const botRgba = `rgba(${botRgb.r}, ${botRgb.g}, ${botRgb.b}, 0.1)`;
                 document.documentElement.style.setProperty('--msg-bot-bg', botRgba);
             }
 
-            // --- Update Welcome Message in DOM if exists ---
             const welcomeEl = document.getElementById('unique-welcome-msg');
             if (welcomeEl) {
-                // Preserve timestamp
                 const timestamp = welcomeEl.querySelector('.timestamp');
                 const newContent = replacePlaceholders(CONFIG.welcomeMessage, null);
                 welcomeEl.innerHTML = newContent;
@@ -1212,7 +1085,6 @@
             });
         };
 
-        // --- Admin Panel Logic ---
         function resetStateVariables() { currentSubject = null; currentDoctor = null; currentCategory = null; renderKeyboard(); }
         function hasAdminAccess() { const user = auth.currentUser; if (!user) return false; const email = user.email; return email === OWNER_EMAIL || (CONFIG.admins && CONFIG.admins.includes(email)); }
         
@@ -1229,12 +1101,11 @@
             const user = auth.currentUser; const isOwner = (user && user.email === OWNER_EMAIL);
             document.getElementById('owner-admin-section').style.display = isOwner ? 'block' : 'none';
             document.getElementById('owner-typography-section').style.display = isOwner ? 'block' : 'none';
-            document.getElementById('owner-theme-section').style.display = isOwner ? 'block' : 'none'; // NEW
+            document.getElementById('owner-theme-section').style.display = isOwner ? 'block' : 'none'; 
             document.getElementById('nav-4').style.display = isOwner ? 'flex' : 'none';
             
             if (isOwner) {
                 renderAdminList();
-                // Populate Colors
                 document.getElementById('color-primary-input').value = CONFIG.themeColor || "#3b82f6";
                 document.getElementById('color-bot-input').value = CONFIG.botMsgColor || "#ffffff";
             } else {
@@ -1272,7 +1143,6 @@
             setTimeout(() => { currentEl.style.display = 'none'; currentEl.classList.remove('active'); nextEl.classList.add('active'); currentAdminTab = index; }, duration);
         };
         
-        // --- Admin Data & Settings ---
         window.saveAdminSettings = function() {
             const backsArr = document.getElementById('admin-msg-backs').value.split('|').map(s => s.trim());
             const newConfig = {
@@ -1290,7 +1160,6 @@
                 englishFont: document.getElementById('select-en-font').value,
                 arabicFont: document.getElementById('select-ar-font').value,
                 appName: CONFIG.appName, appIcon: CONFIG.appIcon, appVersion: CONFIG.appVersion,
-                // NEW: Save Colors
                 themeColor: document.getElementById('color-primary-input').value,
                 botMsgColor: document.getElementById('color-bot-input').value
             };
@@ -1327,7 +1196,6 @@
             showConfirmModal("Remove Admin", "Are you sure?", (confirmed) => { if(confirmed) { CONFIG.admins.splice(index,1); renderAdminList(); } }); 
         }
 
-        // --- Admin Data Manager ---
         function renderAdminDataView() {
             const pathContainer = document.getElementById('admin-data-path'); const listContainer = document.getElementById('admin-list-items');
             listContainer.innerHTML = ''; document.getElementById('new-item-name').value = ''; document.getElementById('new-item-link').value = ''; 
@@ -1383,7 +1251,6 @@
             });
         }
 
-        // --- Notifications (Admin) ---
         window.populateNotifSubjects = function() {
             const select = document.getElementById('notif-subject-select'); select.innerHTML = '<option value="">-- Select Subject --</option>';
             const subjects = Object.keys(database); subjects.forEach(sub => { const opt = document.createElement('option'); opt.value = sub; opt.innerText = sub; select.appendChild(opt); });
@@ -1412,7 +1279,6 @@
             .catch(err => { showToast("❌ Error: " + err.message, "error"); saveBtn.innerText = "Send Notification"; saveBtn.disabled = false; });
         };
 
-        // --- Broadcast (Admin) ---
         window.saveBroadcast = function() {
             const user = auth.currentUser; const email = user ? user.email : null; const isOwner = email === OWNER_EMAIL; let allowed = isOwner;
             if (!allowed) { showInputModal("Verify Identity", "Password (Owner)", (pass) => { if (pass === "1234") proceedBroadcastSave(); else showToast("Wrong Password", "error"); }); return; } proceedBroadcastSave();
@@ -1440,7 +1306,6 @@
             });
         }
 
-        // --- App Manifest Logic (Admin) ---
         document.getElementById('manifest-icon-upload').addEventListener('change', function(e) {
             const file = e.target.files[0]; if(file) { resizeAppIcon(file, (base64String) => { CONFIG.appIcon = base64String; updateAppIconPreview(base64String); document.getElementById('manifest-icon-remove').style.display = 'inline-block'; }); }
         });
@@ -1462,14 +1327,10 @@
             .catch(err => { showToast("❌ Error: " + err.message, "error"); saveBtn.innerText = originalText; });
         }
 
-        // --- Auth Logic (Web Fallback for WebView) ---
         window.handleMenuAuthClick = async function() {
             document.getElementById('menu-dropdown').classList.remove('active');
             if (!auth) return;
-            
             const user = auth.currentUser;
-            
-            // 1. If user is already logged in, handle Admin Access
             if (user) {
                 const email = user.email;
                 if (email === OWNER_EMAIL || (CONFIG.admins && CONFIG.admins.includes(email))) { 
@@ -1479,8 +1340,6 @@
                 }
                 return;
             }
-
-            // 2. If not logged in, perform Login (Standard Web Auth)
             try {
                 const provider = new firebase.auth.GoogleAuthProvider();
                 const result = await auth.signInWithPopup(provider);
@@ -1517,7 +1376,6 @@
             } else { loginText.innerText = "Sign In"; loginIcon.innerText = "🌐"; loginBtn.classList.remove('is-owner', 'is-admin'); }
         }
 
-        // --- Sync & Start ---
         function startSync() { if(refreshInterval) clearInterval(refreshInterval); refreshInterval = setInterval(fetchConfig, 15000); }
         function stopSync() { if(refreshInterval) { clearInterval(refreshInterval); refreshInterval = null; } }
         function handleDeepLink() {
@@ -1542,14 +1400,8 @@
             }
         }
         
-        // --- Capacitor Notifications (Disabled for WebView) ---
-        async function setupCapacitorNotifications() {
-            // Since we removed Capacitor imports, this function does nothing.
-            // Notifications will rely on Web Notifications API and Service Worker.
-            console.log("WebView Mode: Skipping Native Notification Setup.");
-        }
+        async function setupCapacitorNotifications() { console.log("WebView Mode: Skipping Native Notification Setup."); }
 
-        // --- Main OnLoad ---
         window.onload = () => {
             if (!auth) { try { firebase.initializeApp(firebaseConfig); auth = firebase.auth(); } catch(e){} }
             const currentUrl = window.location.href;
@@ -1566,10 +1418,8 @@
             setTimeout(() => { loadingScreen.style.opacity = '0'; setTimeout(() => { loadingScreen.style.display = 'none'; }, 300); }, 1500);
             
             const welcomeMsg = replacePlaceholders(CONFIG.welcomeMessage, null);
-            // Send welcome and mark it with ID
             botReply(welcomeMsg, true); 
             
-            // Add ID to the first message (Welcome)
             setTimeout(() => {
                 const firstMsg = chatArea.querySelector('.message.msg-bot:last-child');
                 if(firstMsg) firstMsg.id = 'unique-welcome-msg';
