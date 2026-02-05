@@ -658,7 +658,7 @@
     <script>
         /**
          * University Bot Pro - Single File Implementation
-         * Features: Firebase Auth, JSONBin Sync, PWA, Admin Panel, Notifications, Live Theme
+         * Features: Firebase Auth, JSONBin Sync, PWA, Admin Panel, Notifications, Live Theme, Offline File Access
          */
 
         // --- Configuration & Constants ---
@@ -924,6 +924,36 @@
             const msg = replacePlaceholders(CONFIG.categoryPrompt, categoryName); 
             botReply(msg, true); renderKeyboard(); 
         }
+
+        // ==========================================
+        // UPDATED: Smart File Opening Logic
+        // ==========================================
+        
+        async function openFileBlob(url, fileName) {
+            showToast("🔄 جاري تجهيز الملف...", "info");
+            try {
+                // 1. محاولة جلب الملف (سيأتي من الذاكرة المخفية إذا كانت الإنترنت مقطوعة)
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("فشل الاتصال");
+
+                // 2. تحويل الملف لـ Blob (كائن ثنائي) داخل المتصفح
+                const blob = await response.blob();
+                
+                // 3. إنشاء رابط مؤقت لهذا الملف في الذاكرة
+                const blobUrl = URL.createObjectURL(blob);
+                
+                // 4. فتح الرابط في نافذة جديدة (سيعرضه القارئ مباشرة)
+                window.open(blobUrl, '_blank');
+                
+                showToast("✅ تم الفتح", "success");
+            } catch (error) {
+                console.error(error);
+                // في حالة فشل الحيلة (نادر جداً)، نعود للطريقة القديمة (رابط تليجرام)
+                window.open(url, '_blank');
+                showToast("⚠️ جاري الفتح من المصدر...", "error");
+            }
+        }
+
         function handleFileClick(fileObj) {
             const isNotification = fileObj.type === "notif" || (fileObj.link && fileObj.link.startsWith("content:"));
             if (isNotification) {
@@ -931,18 +961,26 @@
                 const htmlContent = `<div class="notif-display"><div class="notif-header">📢 Message from Doctor • ${currentDoctor} (${currentSubject})</div><div>${actualMsg}</div></div>`;
                 addMessage(htmlContent, 'bot', true);
             } else {
-                addMessage(`Open: ${fileObj.name}`, 'user');
+                addMessage(`فتح: ${fileObj.name}`, 'user');
                 setTimeout(() => {
                     if (!fileObj.link || fileObj.link.startsWith("javascript:") || fileObj.link === "#") { 
                         const htmlContent = `<div style="margin-bottom:5px;">📎 <b>${fileObj.name}</b></div><div style="background:rgba(239,68,68,0.1); color:#fca5a5; padding:10px; border-radius:8px; border:1px solid rgba(239,68,68,0.2); font-size:13px;"><span>⚠️</span><span>Link not configured</span></div>`; 
                         addMessage(htmlContent, 'bot', true); 
                     } else { 
-                        const htmlContent = `<div style="margin-bottom:5px;">📎 <b>${fileObj.name}</b></div><a href="${fileObj.link}" target="_blank" class="file-link-btn"><span>📂</span><span>Download / Open File</span></a>`; 
-                        addMessage(htmlContent, 'bot', true); 
+                        // التعديل هنا: استخدام الزر الجديد
+                        const htmlContent = `
+                            <div style="margin-bottom:5px;">📎 <b>${fileObj.name}</b></div>
+                            <div onclick="openFileBlob('${fileObj.link}', '${fileObj.name.replace(/'/g, "\\'")}')" 
+                                 class="file-link-btn" style="cursor:pointer;">
+                                <span>👁️</span><span>عرض / فتح الملف مباشرة</span>
+                            </div>
+                        `; 
+                        addMessage(htmlContent, 'bot', true);
                     }
                 }, 800);
             }
         }
+
         function goBack() {
             addMessage("🔙 Back", 'user');
             if (currentCategory) { currentCategory = null; const msg = replacePlaceholders(CONFIG.backDoctor, currentDoctor); botReply(msg, true); } 
