@@ -24,7 +24,6 @@
 
     <style>
         :root {
-            /* Default Color Palette */
             --bg-dark: #0f172a;
             --bg-glass: rgba(15, 23, 42, 0.85);
             --bg-glass-heavy: rgba(15, 23, 42, 0.95);
@@ -622,7 +621,7 @@
     <script>
         /**
          * University Bot Pro - Single File Implementation
-         * Includes: LocalStorage Persistence (Offline Sync) & Native Link Handling
+         * Includes: LocalStorage Persistence (Offline Sync) & Web Share API for File Menu
          */
 
         // --- Configuration & Constants ---
@@ -811,19 +810,39 @@
         }
 
         // ==========================================
-        // NATIVE FILE OPENING (Triggers System Intent Menu)
+        // حل عرض قائمة التطبيقات (Web Share API)
         // ==========================================
-        function openFileNative(url) {
-            // Create a temporary anchor tag to invoke the browser's native behavior
-            // using target="_blank" triggers the OS "Open With" menu on mobile
-            const a = document.createElement('a');
-            a.href = url;
-            a.target = '_blank'; 
-            // We do NOT set the 'download' attribute, because that forces a download
-            // Without 'download', the browser tries to navigate/view it, which invokes the picker.
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+        async function openFileNative(url, fileName) {
+            // 1. محاولة استخدام Web Share API (الحل الأفضل للموبايل)
+            // هذا الكود يجعل الموبايل يظهر قائمة التطبيقات التي تفتح الملف
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("فشل الاتصال");
+                
+                const blob = await response.blob();
+                const file = new File([blob], fileName, { type: blob.type });
+
+                // نتأكد أن المتصفح يدعم مشاركة الملفات
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                        showToast("📤 جاري تجهيز القائمة...", "info");
+                        await navigator.share({
+                            files: [file],
+                            title: fileName,
+                            text: "فتح الملف"
+                        });
+                        return; // إذا نجح نوقف هنا
+                    } catch (shareError) {
+                        // إذا ألغى المستخدم أو حدث خطأ، نكمل للطريقة البديلة
+                        console.log("Share cancelled or failed", shareError);
+                    }
+                }
+            } catch (fetchError) {
+                console.log("Fetch failed (CORS or Network), using fallback", fetchError);
+            }
+
+            // 2. الطريقة البديلة: فتح الرابط مباشرة
+            window.open(url, '_blank');
         }
 
         function handleFileClick(fileObj) {
@@ -841,7 +860,7 @@
                     } else { 
                         const htmlContent = `
                             <div style="margin-bottom:5px;">📎 <b>${fileObj.name}</b></div>
-                            <div onclick="openFileNative('${fileObj.link}')" 
+                            <div onclick="openFileNative('${fileObj.link}', '${fileObj.name.replace(/'/g, "\\'")}')" 
                                  class="file-link-btn" style="cursor:pointer;">
                                 <span>📂</span><span>اضغط هنا لفتح الملف</span>
                             </div>
@@ -1440,7 +1459,7 @@
 
             // 2. Then try to fetch from Cloud (Update)
             fetchConfig().then(() => {
-                // If we just loaded from cache, fetchConfig updates the UI with cloud data
+                // If we just loaded from cache, fetchConfig updates UI with cloud data
                 if (localData) showToast("🔄 تم تحديث البيانات من السحابة", "success");
                 else showToast("🎉 Synced with Cloud", "success");
             }).catch(err => { 
