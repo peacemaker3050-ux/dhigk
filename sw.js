@@ -1,4 +1,4 @@
-const CACHE_NAME = 'uni-bot-cache-v5'; // رقم إصدار جديد لضمان التحديث
+const CACHE_NAME = 'uni-bot-cache-v4'; // تحديث رقم الإصدار لضمان التحديث
 
 self.addEventListener('install', e => {
     e.waitUntil(
