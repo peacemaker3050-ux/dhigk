@@ -12,6 +12,8 @@
     <meta name="apple-mobile-web-app-title" content="UniBot">
     <meta name="theme-color" content="#0f172a">
     <link rel="manifest" id="dynamic-manifest">
+    
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Poppins:wght@400;500;600;700&family=Open+Sans:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Cairo:wght@400;600;700&family=Tajawal:wght@400;500;700&family=Almarai:wght@400;700;800&family=Amiri:wght@400;700&family=El+Messiri:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -19,44 +21,35 @@
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    
-    <!-- MODIFIED: Capacitor Native Auth & Core Import -->
-    <script type="module">
-        import { FirebaseAuthentication } from 'https://cdn.jsdelivr.net/npm/@capacitor-firebase/authentication@latest/dist/esm/index.js';
-        import { PushNotifications } from 'https://cdn.jsdelivr.net/npm/@capacitor/push-notifications@latest/dist/esm/index.js';
-        import { LocalNotifications } from 'https://cdn.jsdelivr.net/npm/@capacitor/local-notifications@latest/dist/esm/index.js';
-        import { App } from 'https://cdn.jsdelivr.net/npm/@capacitor/app@latest/dist/esm/index.js';
-        import { Capacitor } from 'https://cdn.jsdelivr.net/npm/@capacitor/core@latest/dist/esm/index.js';
-
-        // Expose plugins to global window object
-        window.FirebaseAuthentication = FirebaseAuthentication;
-        window.PushNotifications = PushNotifications;
-        window.LocalNotifications = LocalNotifications;
-        window.CapacitorApp = App;
-        window.Capacitor = Capacitor;
-    </script>
 
     <style>
         :root {
+            /* Default Color Palette - Will be overridden by JS */
             --bg-dark: #0f172a;
             --bg-glass: rgba(15, 23, 42, 0.85);
             --bg-glass-heavy: rgba(15, 23, 42, 0.95);
-            --accent-primary: #3b82f6;
-            --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            --msg-bot-bg: rgba(255, 255, 255, 0.1);
-            --msg-user-bg: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            --accent-primary: #3b82f6; /* Dynamic User Color */
+            --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); /* Dynamic User Gradient */
+            --msg-bot-bg: rgba(255, 255, 255, 0.1); /* Dynamic Bot Color */
+            --msg-user-bg: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); /* Dynamic User Gradient */
+            
             --text-primary: #f8fafc;
             --text-secondary: #94a3b8;
             --border-color: rgba(255, 255, 255, 0.1);
+            
+            /* UI Elements */
             --shadow-soft: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             --glass-blur: blur(16px);
             --radius-md: 12px;
             --radius-lg: 20px;
             --radius-full: 999px;
+            
+            /* Typography Defaults */
             --font-en: 'Inter', sans-serif;
             --font-ar: 'Cairo', sans-serif;
         }
 
+        /* Reset & Base Styles */
         * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
         
         html, body {
@@ -68,13 +61,14 @@
             color: var(--text-primary);
         }
 
+        /* Main App Layout */
         .app-container {
             width: 100%; max-width: 500px; height: 100%; margin: 0 auto;
             display: flex; flex-direction: column; position: relative;
             box-shadow: 0 0 50px rgba(0, 0, 0, 0.5); z-index: 10;
         }
 
-        /* Header */
+        /* Header Section */
         header {
             padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;
             background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(16px);
@@ -102,7 +96,11 @@
             width: 8px; height: 8px; background-color: #4ade80; border-radius: 50%;
             box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); animation: pulse-green 2s infinite;
         }
-        @keyframes pulse-green { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(74, 222, 128, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); } }
+        @keyframes pulse-green { 
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); } 
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(74, 222, 128, 0); } 
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); } 
+        }
 
         .header-actions { color: var(--text-secondary); font-size: 26px; cursor: pointer; padding: 5px; transition: color 0.2s; }
         .header-actions:hover { color: #fff; }
@@ -143,14 +141,14 @@
         }
 
         .msg-bot { align-self: flex-start; background: var(--msg-bot-bg); color: var(--text-primary); border-bottom-left-radius: 4px; border: 1px solid rgba(255,255,255,0.1); }
-        .msg-user { align-self: flex-end; background: var(--msg-user-bg); color: #fff; border-bottom-right-radius: 4px; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3); }
+        .msg-user { align-self: flex-end; background: var(--msg-user-bg); color: #fff; border-bottom-right-radius: 4px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); }
 
         .timestamp {
             font-size: 10px; color: rgba(255, 255, 255, 0.5); text-align: right; align-self: flex-end;
             margin-top: 6px; user-select: none;
         }
 
-        /* Special Messages */
+        /* Special Message Types */
         .broadcast-msg {
             background: linear-gradient(145deg, rgba(234, 179, 8, 0.15), rgba(234, 179, 8, 0.05));
             border: 1px solid rgba(234, 179, 8, 0.4); border-left: 3px solid #eab308;
@@ -175,7 +173,7 @@
         }
         .file-link-btn:hover { background: rgba(255, 255, 255, 0.15); transform: translateY(-2px); }
 
-        /* Keyboard */
+        /* Interactive Keyboard */
         #keyboard-area {
             background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
             padding: 12px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
@@ -197,7 +195,7 @@
 
         @keyframes messagePop { from { opacity: 0; transform: translateY(20px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
-        /* Modals */
+        /* Modals & Overlays */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); z-index: 9999;
@@ -229,7 +227,7 @@
         .install-text h4 { margin: 0 0 5px 0; color: #fff; font-size: 15px; }
         .install-text p { margin: 0; color: #94a3b8; font-size: 13px; line-height: 1.4; }
 
-        /* Admin Panel */
+        /* Admin Panel Styles */
         .admin-modal {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -277,6 +275,23 @@
         }
         .form-textarea { height: 90px; resize: vertical; }
 
+        /* Color Inputs */
+        input[type="color"] {
+        appearance: none;
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 40px;
+            cursor: pointer;
+            background: none;
+            padding: 0;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+        }
+
         .admin-section-title {
             color: #60a5fa; margin: 25px 0 15px 0; font-size: 14px; font-weight: 700;
             text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -297,7 +312,7 @@
         }
         .btn-delete:hover { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
 
-        /* Data List in Admin */
+        /* Admin Data List */
         .data-list { display: flex; flex-direction: column; gap: 10px; max-height: 40vh; overflow-y: auto; }
         .data-item {
             background: rgba(255, 255, 255, 0.03); padding: 12px; border-radius: var(--radius-md);
@@ -308,7 +323,7 @@
         .btn-del { background: rgba(239, 68, 68, 0.2); color: #f87171; }
         .btn-edit { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
 
-        /* Toast */
+        /* Toast Notifications */
         #toast-container {
             position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
             display: flex; flex-direction: column; gap: 10px; z-index: 9998;
@@ -324,16 +339,19 @@
         .toast.success { border-left: 4px solid #22c55e; }
         .toast.error { border-left: 4px solid #ef4444; }
 
+        /* Animations */
         @keyframes toastIn { from { opacity: 0; transform: translateY(30px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUpFade { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
+        /* Typing Indicator */
         .typing-indicator {
             font-size: 12px; color: var(--text-secondary); margin-left: 15px; margin-bottom: 10px;
             display: none; font-style: italic; opacity: 0.7; font-weight: 600; direction: ltr; text-align: left;
         }
         .typing-indicator.active { display: block; }
 
+        /* Admin Header */
         .admin-header-top {
             display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.7);
             backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
@@ -381,6 +399,7 @@
     </div>
 
     <div class="app-container">
+        <!-- Header -->
         <header id="main-header">
             <div class="header-info">
                 <div class="bot-avatar" id="header-avatar">🎓</div>
@@ -390,6 +409,7 @@
                 </div>
             </div>
             <div class="header-actions" id="menu-btn">⋮</div>
+            <!-- Dropdown Menu -->
             <div class="menu-dropdown" id="menu-dropdown">
                 <div class="menu-item install-btn" id="pwa-install-btn" style="display:none;" onclick="window.installApp()">
                     <span>📲</span> <span>Install App</span>
@@ -418,10 +438,15 @@
             </div>
         </header>
 
+        <!-- Main Chat Area -->
         <div id="chat-area"></div>
         <div class="typing-indicator" id="typing">Syncing...</div>
+        
+        <!-- Interactive Keyboard -->
         <div id="keyboard-area"></div>
     </div>
+
+    <!-- Modals -->
 
     <!-- Visual Alert Modal -->
     <div id="visual-alert-overlay" class="modal-overlay">
@@ -471,6 +496,7 @@
         </div>
     </div>
 
+    <!-- Toast Container -->
     <div id="toast-container"></div>
 
     <!-- Admin Panel -->
@@ -492,6 +518,22 @@
                 <div style="text-align: left;margin-bottom: 20px;">
                     <span onclick="window.logoutUser()" style="cursor: pointer; color: #f87171; font-size: 13px; font-weight: 600;">Sign Out 🚪</span>
                 </div>
+                
+                <div id="owner-theme-section" style="display: none;">
+                    <div class="admin-section-title" style="color: #fbbf24;">Theme Colors (Owner Only)</div>
+                    <div class="form-group" style="display: flex; gap: 15px;">
+                        <div style="flex: 1;">
+                            <label class="form-label">Primary Color (Student/Buttons)</label>
+                            <input type="color" id="color-primary-input" value="#3b82f6">
+                        </div>
+                        <div style="flex: 1;">
+                            <label class="form-label">Bot Message Tint</label>
+                            <input type="color" id="color-bot-input" value="#ffffff">
+                        </div>
+                    </div>
+                    <p style="font-size:11px; color:#94a3b8; margin-top:-10px; margin-bottom: 20px;">Primary color affects buttons and student messages. Bot color adds a tint to bot messages (Glassy effect).</p>
+                </div>
+
                 <div id="owner-typography-section" style="display: none;">
                     <div class="admin-section-title" style="color: #fbbf24;">Typography (Owner Only)</div>
                     <div class="form-group">
@@ -614,6 +656,11 @@
     </div>
 
     <script>
+        /**
+         * University Bot Pro - Single File Implementation
+         * Features: Firebase Auth, JSONBin Sync, PWA, Admin Panel, Notifications, Live Theme
+         */
+
         // --- Configuration & Constants ---
         const firebaseConfig = {
           apiKey: "AIzaSyBUzcbZDAFS3rhjcp2-maEiSTmuBmUlGPQ",
@@ -638,6 +685,9 @@
             generalBroadcast: { active: false, title: "", body: "", timestamp: 0 },
             englishFont: "'Inter', sans-serif", arabicFont: "'Cairo', sans-serif",
             appName: "UniBot Pro", appIcon: "", appVersion: 1,
+            // NEW: Theme Config
+            themeColor: "#3b82f6", // Blue (Student/Buttons)
+            botMsgColor: "#ffffff", // White (Bot BG)
             welcomeMessage: "Welcome! 🎓<br>This is <b>{botName}</b>.<br>Please select a subject to begin.",
             subjectPrompt: "<b>{name}</b>\nPlease select a Doctor 👇", doctorPrompt: "<b>{name}</b>\nSelect a section 👇",
             categoryPrompt: "<b>{name}</b> list:", backSubject: "Back to <b>{name}</b> doctors:",
@@ -758,6 +808,7 @@
             msgDiv.appendChild(timeSpan); 
             chatArea.appendChild(msgDiv); 
             scrollToBottom();
+            return msgDiv;
         }
 
         function scrollToBottom() { setTimeout(() => { chatArea.scrollTop = chatArea.scrollHeight; }, 0); }
@@ -948,6 +999,26 @@
             };
         }
 
+        // --- Helper: Hex to RGB & Darken ---
+        function hexToRgb(hex) {
+            var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        }
+
+        function darkenColor(hex, percent) {
+            const rgb = hexToRgb(hex);
+            if (!rgb) return hex;
+            const amt = Math.round(2.55 * percent);
+            const R = (rgb.r - amt) < 0 ? 0 : rgb.r - amt;
+            const G = (rgb.g - amt) < 0 ? 0 : rgb.g - amt;
+            const B = (rgb.b - amt) < 0 ? 0 : rgb.b - amt;
+            return "#" + (0x1000000 + (R << 16) + (G << 8) + B).toString(16).slice(1);
+        }
+
         // --- Data Sync & Configuration ---
         function fetchConfig() {
             return fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, { headers: { 'X-Master-Key': JSONBIN_ACCESS_KEY, 'X-Bin-Meta': 'false' } })
@@ -987,6 +1058,36 @@
             if (CONFIG.chatBgImage && CONFIG.chatBgImage.trim().length > 50) { chatArea.style.backgroundImage = `url('${CONFIG.chatBgImage}')`; chatArea.style.backgroundSize = "cover"; } else { chatArea.style.backgroundImage = "none"; }
             document.documentElement.style.setProperty('--font-en', CONFIG.englishFont || "'Inter', sans-serif");
             document.documentElement.style.setProperty('--font-ar', CONFIG.arabicFont || "'Cairo', sans-serif");
+
+            // --- Apply Theme Colors ---
+            const primaryHex = CONFIG.themeColor || "#3b82f6";
+            const botColorHex = CONFIG.botMsgColor || "#ffffff";
+            const botRgb = hexToRgb(botColorHex);
+            
+            // Update Primary Color (User Messages, Buttons, Accents)
+            document.documentElement.style.setProperty('--accent-primary', primaryHex);
+            // Generate Gradient for User Messages
+            const darkerHex = darkenColor(primaryHex, 30);
+            const userGradient = `linear-gradient(135deg, ${primaryHex} 0%, ${darkerHex} 100%)`;
+            document.documentElement.style.setProperty('--accent-gradient', userGradient);
+            document.documentElement.style.setProperty('--msg-user-bg', userGradient);
+
+            // Update Bot Color (Glassy effect with 0.1 opacity)
+            if (botRgb) {
+                const botRgba = `rgba(${botRgb.r}, ${botRgb.g}, ${botRgb.b}, 0.1)`;
+                document.documentElement.style.setProperty('--msg-bot-bg', botRgba);
+            }
+
+            // --- Update Welcome Message in DOM if exists ---
+            const welcomeEl = document.getElementById('unique-welcome-msg');
+            if (welcomeEl) {
+                // Preserve timestamp
+                const timestamp = welcomeEl.querySelector('.timestamp');
+                const newContent = replacePlaceholders(CONFIG.welcomeMessage, null);
+                welcomeEl.innerHTML = newContent;
+                if(timestamp) welcomeEl.appendChild(timestamp);
+            }
+
             if(CONFIG.appName || CONFIG.appIcon) updateDynamicManifest(CONFIG.appName, CONFIG.appIcon);
             window.updateAuthUI(); renderKeyboard(); checkAndShowBroadcast();
         }
@@ -1041,9 +1142,17 @@
             const user = auth.currentUser; const isOwner = (user && user.email === OWNER_EMAIL);
             document.getElementById('owner-admin-section').style.display = isOwner ? 'block' : 'none';
             document.getElementById('owner-typography-section').style.display = isOwner ? 'block' : 'none';
+            document.getElementById('owner-theme-section').style.display = isOwner ? 'block' : 'none'; // NEW
             document.getElementById('nav-4').style.display = isOwner ? 'flex' : 'none';
             
-            if (isOwner) renderAdminList(); else document.getElementById('admin-list-container').innerHTML = '';
+            if (isOwner) {
+                renderAdminList();
+                // Populate Colors
+                document.getElementById('color-primary-input').value = CONFIG.themeColor || "#3b82f6";
+                document.getElementById('color-bot-input').value = CONFIG.botMsgColor || "#ffffff";
+            } else {
+                document.getElementById('admin-list-container').innerHTML = '';
+            }
             
             if(CONFIG.generalBroadcast && CONFIG.generalBroadcast.active) { document.getElementById('broadcast-title').value = CONFIG.generalBroadcast.title; document.getElementById('broadcast-body').value = CONFIG.generalBroadcast.body; } 
             else { document.getElementById('broadcast-title').value = ""; document.getElementById('broadcast-body').value = ""; }
@@ -1093,7 +1202,10 @@
                 recentUpdates: CONFIG.recentUpdates, database: database,
                 englishFont: document.getElementById('select-en-font').value,
                 arabicFont: document.getElementById('select-ar-font').value,
-                appName: CONFIG.appName, appIcon: CONFIG.appIcon, appVersion: CONFIG.appVersion
+                appName: CONFIG.appName, appIcon: CONFIG.appIcon, appVersion: CONFIG.appVersion,
+                // NEW: Save Colors
+                themeColor: document.getElementById('color-primary-input').value,
+                botMsgColor: document.getElementById('color-bot-input').value
             };
             CONFIG = { ...CONFIG, ...newConfig }; applyConfig(CONFIG); saveConfigToBin(newConfig);
         }
@@ -1263,7 +1375,7 @@
             .catch(err => { showToast("❌ Error: " + err.message, "error"); saveBtn.innerText = originalText; });
         }
 
-        // --- MODIFIED Auth Logic ---
+        // --- Auth Logic (Web Fallback for WebView) ---
         window.handleMenuAuthClick = async function() {
             document.getElementById('menu-dropdown').classList.remove('active');
             if (!auth) return;
@@ -1281,61 +1393,21 @@
                 return;
             }
 
-            // 2. If not logged in, perform Login
-            
-            // Check if running on Native Platform (Android/iOS)
-            if (window.Capacitor && window.Capacitor.getPlatform() !== 'web') {
-                try {
-                    console.log("Attempting Native Google Auth...");
-                    
-                    // A. Call the Native Plugin
-                    const result = await window.FirebaseAuthentication.signInWithGoogle();
-                    
-                    if (!result || !result.credential) {
-                        throw new Error("Native login did not return credentials.");
-                    }
-
-                    // B. Create a Firebase Credential from the Native ID Token
-                    // This "syncs" the native login with the Web SDK so auth.currentUser updates
-                    const credential = firebase.auth.GoogleAuthProvider.credential(result.credential.idToken);
-                    
-                    // C. Sign in to Firebase Web Auth
-                    await auth.signInWithCredential(credential);
-                    
-                    console.log("Native Auth Synced with Firebase Web SDK");
-                    window.updateAuthUI(); 
-                    showToast("Native Login Successful ✅", "success");
-
-                } catch (err) {
-                    console.error("Native Auth Failed:", err);
-                    // Handle specific cancellation (user pressed back)
-                    if (err.message.includes('canceled') || err.code === 'auth/cancelled-popup-request') {
-                        showToast("Login Cancelled", "info");
-                    } else {
-                        showToast("Login Failed: " + (err.message || "Unknown Error"), "error");
-                    }
-                }
-            } 
-            // 3. Fallback for Web Browsers (GitHub Pages, Chrome, etc.)
-            else {
-                try {
-                    const provider = new firebase.auth.GoogleAuthProvider();
-                    const result = await auth.signInWithPopup(provider);
-                    window.updateAuthUI(); 
-                    showToast("Web Login Successful", "success");
-                } catch (error) {
-                    showToast("Login Failed: " + error.message, "error");
-                }
+            // 2. If not logged in, perform Login (Standard Web Auth)
+            try {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                const result = await auth.signInWithPopup(provider);
+                window.updateAuthUI(); 
+                showToast("Login Successful", "success");
+            } catch (error) {
+                console.error("Login Error:", error);
+                showToast("Login Failed: " + error.message, "error");
             }
         };
 
         window.logoutUser = async function() {
             if (auth) {
                 await auth.signOut();
-                // Sign out of native layer too if applicable
-                if (window.Capacitor && window.Capacitor.getPlatform() !== 'web') {
-                    try { await window.FirebaseAuthentication.signOut(); } catch(e){}
-                }
                 window.location.reload();
             }
         };
@@ -1383,18 +1455,11 @@
             }
         }
         
-        // --- Capacitor Notifications ---
+        // --- Capacitor Notifications (Disabled for WebView) ---
         async function setupCapacitorNotifications() {
-            if (!window.Capacitor) return;
-            try {
-                let permStatus = await window.PushNotifications.checkPermissions();
-                if (permStatus.receive === 'prompt') { permStatus = await window.PushNotifications.requestPermissions(); }
-                if (permStatus.receive !== 'granted') { console.log('User denied permissions!'); return; }
-                await window.PushNotifications.register();
-                window.PushNotifications.addListener('registration', (token) => { console.log('My push token: ' + token.value); showToast('Token Registered (Check Console)', 'success'); });
-                window.PushNotifications.addListener('pushNotificationReceived', (notification) => { console.log('Push received: ' + JSON.stringify(notification)); window.LocalNotifications.schedule({ notifications: [{ title: notification.title, body: notification.body, id: Date.now(), schedule: { at: new Date() } }] }); });
-                window.PushNotifications.addListener('pushNotificationActionPerformed', (notification) => { console.log('Push action performed: ' + JSON.stringify(notification)); });
-            } catch (e) { console.error("Error setting up notifications", e); }
+            // Since we removed Capacitor imports, this function does nothing.
+            // Notifications will rely on Web Notifications API and Service Worker.
+            console.log("WebView Mode: Skipping Native Notification Setup.");
         }
 
         // --- Main OnLoad ---
@@ -1413,7 +1478,17 @@
             const loadingScreen = document.getElementById('loading-screen');
             setTimeout(() => { loadingScreen.style.opacity = '0'; setTimeout(() => { loadingScreen.style.display = 'none'; }, 300); }, 1500);
             
-            const welcomeMsg = replacePlaceholders(CONFIG.welcomeMessage, null); botReply(welcomeMsg, true); renderKeyboard(); 
+            const welcomeMsg = replacePlaceholders(CONFIG.welcomeMessage, null);
+            // Send welcome and mark it with ID
+            botReply(welcomeMsg, true); 
+            
+            // Add ID to the first message (Welcome)
+            setTimeout(() => {
+                const firstMsg = chatArea.querySelector('.message.msg-bot:last-child');
+                if(firstMsg) firstMsg.id = 'unique-welcome-msg';
+            }, CONFIG.typingSpeed + 100);
+
+            renderKeyboard(); 
 
             fetchConfig().then(() => showToast("🎉 Synced with Cloud", "success")).catch(err => { console.error("Initial Sync Failed", err); showToast("⚠️ Offline Mode", "error"); });
             
