@@ -622,6 +622,7 @@
     <script>
         /**
          * University Bot Pro - Single File Implementation
+         * Includes: LocalStorage Persistence (Offline Sync) & Smart File Download Logic
          */
 
         // --- Configuration & Constants ---
@@ -810,31 +811,47 @@
         }
 
         // ==========================================
-        // Smart File Opening (With MIME Type)
+        // Smart File Opening (First Time Download, Second Time Open)
         // ==========================================
         async function openFileBlob(url, fileName) {
-            showToast("🔄 جاري تحضير الملف...", "info");
+            // Check if file was downloaded before using LocalStorage
+            // We use the URL as a unique ID
+            const fileId = url; 
+            const storageKey = `dl_${fileId}`;
+            const wasDownloaded = localStorage.getItem(storageKey) === 'true';
+
             try {
-                // Fetch will automatically hit the Service Worker cache if offline
+                // Fetch from Service Worker Cache or Network
                 const response = await fetch(url);
                 if (!response.ok) throw new Error("فشل الاتصال");
 
-                // Get the MIME type from the headers to help the browser decide
-                const mimeType = response.headers.get('content-type') || 'application/octet-stream';
                 const blob = await response.blob();
-                
-                // Create a File object (better than Blob for opening in external apps on some platforms)
-                const file = new File([blob], fileName, { type: mimeType });
-                const blobUrl = URL.createObjectURL(file);
-                
-                // Open in new tab
-                window.open(blobUrl, '_blank');
-                
-                showToast("✅ تم الفتح", "success");
+                const blobUrl = URL.createObjectURL(blob);
+
+                if (!wasDownloaded) {
+                    // --- First Click: Trigger Download ---
+                    showToast("⬇️ جاري تحميل الملف...", "info");
+                    const a = document.createElement('a');
+                    a.href = blobUrl;
+                    a.download = fileName; // This forces download
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    
+                    // Mark as downloaded
+                    localStorage.setItem(storageKey, 'true');
+                    showToast("✅ تم التحميل للجهاز", "success");
+                } else {
+                    // --- Second Click: Trigger Open (View) ---
+                    showToast("👁️ جاري فتح الملف...", "info");
+                    window.open(blobUrl, '_blank');
+                    // No need to mark anything, keep it as downloaded state
+                }
             } catch (error) {
                 console.error(error);
+                // Fallback
                 window.open(url, '_blank');
-                showToast("⚠️ جاري الفتح من المصدر...", "error");
+                showToast("⚠️ فشل الفتح التلقائي، جاري المحاولة...", "error");
             }
         }
 
@@ -855,7 +872,7 @@
                             <div style="margin-bottom:5px;">📎 <b>${fileObj.name}</b></div>
                             <div onclick="openFileBlob('${fileObj.link}', '${fileObj.name.replace(/'/g, "\\'")}')" 
                                  class="file-link-btn" style="cursor:pointer;">
-                                <span>👁️</span><span>عرض / فتح الملف</span>
+                                <span>📂</span><span>عرض / تحميل الملف</span>
                             </div>
                         `; 
                         addMessage(htmlContent, 'bot', true);
@@ -986,12 +1003,42 @@
             return "#" + (0x1000000 + (R << 16) + (G << 8) + B).toString(16).slice(1);
         }
 
+        // ==========================================
+        // PERSISTENCE LOGIC (The Fix for Offline Data)
+        // ==========================================
+        
+        function saveToLocalStorage(data) {
+            try {
+                localStorage.setItem('uniBot_db', JSON.stringify(data));
+            } catch (e) {
+                console.warn("LocalStorage full or disabled");
+            }
+        }
+
+        function loadFromLocalStorage() {
+            try {
+                const data = localStorage.getItem('uniBot_db');
+                if (data) {
+                    const parsed = JSON.parse(data);
+                    // Merge with defaults to ensure structure integrity
+                    return { ...defaultConfig, ...parsed, database: { ...defaultDatabase, ...parsed.database } };
+                }
+            } catch (e) {
+                console.error("Error loading from LocalStorage", e);
+            }
+            return null;
+        }
+
         function fetchConfig() {
             return fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, { headers: { 'X-Master-Key': JSONBIN_ACCESS_KEY, 'X-Bin-Meta': 'false' } })
             .then(res => { if (!res.ok) throw new Error("Failed"); return res.json(); })
             .then(data => { 
                 CONFIG = { ...defaultConfig, ...data }; 
                 if (data.database) CONFIG.database = { ...data.database, ...defaultDatabase }; else CONFIG.database = defaultDatabase;
+                
+                // SAVE TO LOCAL STORAGE (Key Fix for Offline Mode)
+                saveToLocalStorage(CONFIG);
+                
                 applyConfig(CONFIG); 
                 
                 if (CONFIG.recentUpdates && CONFIG.recentUpdates.length > 0) {
@@ -1011,7 +1058,7 @@
             const btnSave = document.querySelector('.btn-save'); const originalText = btnSave ? btnSave.innerText : "Saving...";
             if(btnSave) btnSave.innerText = "Saving...";
             fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_ACCESS_KEY }, body: JSON.stringify(newConfig) })
-            .then(res => { if (!res.ok) throw new Error("Save failed"); showToast("✅ Saved Successfully", "success"); database = newConfig.database; CONFIG.database = { ...newConfig.database, ...defaultDatabase }; database = CONFIG.database; if(btnSave) btnSave.innerText = originalText; })
+            .then(res => { if (!res.ok) throw new Error("Save failed"); showToast("✅ Saved Successfully", "success"); database = newConfig.database; CONFIG.database = { ...newConfig.database, ...defaultDatabase }; database = CONFIG.database; saveToLocalStorage(newConfig); if(btnSave) btnSave.innerText = originalText; })
             .catch(err => { showToast("❌ Error: " + err.message, "error"); if(btnSave) btnSave.innerText = originalText; });
         }
         function applyConfig(newConfig) {
@@ -1411,6 +1458,25 @@
                 setTimeout(() => { if (window.location.href.includes('/__/auth/handler')) window.location.replace(window.location.origin); }, 2000); return; 
             }
 
+            // --- STRATEGY CHANGE FOR OFFLINE DATA ---
+            // 1. Load from LocalStorage first (Instant offline view)
+            const localData = loadFromLocalStorage();
+            if (localData) {
+                CONFIG = localData;
+                applyConfig(CONFIG);
+                showToast("📱 تم تحميل البيانات المحفوظة", "success");
+            }
+
+            // 2. Then try to fetch from Cloud (Update)
+            fetchConfig().then(() => {
+                // If we just loaded from cache, fetchConfig updates the UI with cloud data
+                if (localData) showToast("🔄 تم تحديث البيانات من السحابة", "success");
+                else showToast("🎉 Synced with Cloud", "success");
+            }).catch(err => { 
+                console.error("Initial Sync Failed", err); 
+                if (!localData) showToast("⚠️ Offline Mode", "error");
+            });
+
             if ('serviceWorker' in navigator) { navigator.serviceWorker.register(swUrl).then(reg => console.log("SW Registered", reg)).catch(err => console.error("SW Fail:", err)); }
             initFirebaseAuth(); 
             
@@ -1427,8 +1493,6 @@
 
             renderKeyboard(); 
 
-            fetchConfig().then(() => showToast("🎉 Synced with Cloud", "success")).catch(err => { console.error("Initial Sync Failed", err); showToast("⚠️ Offline Mode", "error"); });
-            
             handleDeepLink(); setupCapacitorNotifications(); startSync();
         };
     </script>
