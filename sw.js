@@ -1,5 +1,5 @@
 // ============================================================
-// === HYBRID SERVICE WORKER (FCM + FAST POLLING + CACHING) ===
+// === HYBRID SERVICE WORKER (OFFLINE READY + FCM + POLLING) ===
 // ============================================================
 
 // 1. FIREBASE IMPORTS & CONFIG
@@ -21,12 +21,12 @@ const messaging = firebase.messaging();
 // CONSTANTS
 const BIN_ID = "696e77bfae596e708fe71e9d";
 const BIN_KEY = "$2a$10$TunKuA35QdJp478eIMXxRunQfqgmhDY3YAxBXUXuV/JrgIFhU0Lf2";
-const CACHE_NAME = 'uni-bot-cache-v5'; // Cache version number
+const CACHE_NAME = 'uni-bot-cache-v6'; // رقم جديد لتحديث الـ Cache
 
 // 2. INDEXEDDB SETUP (For tracking notification timestamps)
 let db;
 let dbReady = false;
-let isPolling = false; // To prevent multiple intervals
+let isPolling = false;
 
 const initDB = () => {
   return new Promise((resolve, reject) => {
@@ -67,24 +67,30 @@ async function setLastTime(time) {
     tx.objectStore('settings').put({ id: 'lastNotifTime', value: time });
 }
 
-// 3. SW INSTALL (Merge of DB Init + Cache Init)
+// 3. SW INSTALL (Cache Critical Libraries + App Assets)
 self.addEventListener('install', (event) => { 
-    console.log("[SW] Installing...");
-    self.skipWaiting(); // Force the waiting service worker to become the active service worker.
+    console.log("[SW] Installing & Caching Libraries...");
+    self.skipWaiting(); 
     
     event.waitUntil(
         Promise.all([
             // A. Initialize IndexedDB
             initDB(),
-            // B. Cache App Assets
+            // B. Cache App Assets AND Firebase SDKs (This fixes offline blank screen)
             caches.open(CACHE_NAME).then(cache => {
-                return cache.addAll(['./', 'index.html']);
+                return cache.addAll([
+                    './', 
+                    'index.html',
+                    'https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js',
+                    'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js',
+                    'https://cdn-icons-png.flaticon.com/512/2991/2991148.png' // Default icon
+                ]);
             })
         ])
     );
 });
 
-// 4. SW ACTIVATE (Merge of Claim + Cleanup + Sync + Polling)
+// 4. SW ACTIVATE
 self.addEventListener('activate', (event) => { 
     console.log("[SW] Activated");
     
@@ -122,37 +128,43 @@ self.addEventListener('activate', (event) => {
     ); 
 
     // FAST POLLING LOOP (Aggressive: 1 Minute)
-    // This runs while SW is alive. We use a simple check to ensure it doesn't run twice.
     if (!isPolling) {
         isPolling = true;
         setInterval(() => {
             checkNotifications();
-        }, 60 * 1000); // 60 seconds
+        }, 60 * 1000);
     }
 });
 
-// 5. FETCH HANDLER (Caching Strategy)
+// 5. FETCH HANDLER (Cache First for Everything except API)
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
     // Strategy (A): Network First for JSONBin API (Always get fresh data)
     if (url.hostname.includes('jsonbin.io')) {
-        event.respondWith(fetch(event.request));
+        event.respondWith(fetch(event.request).catch(() => {
+            // Fallback: Try to load from cache if network fails completely (Offline mode for data reading)
+            return caches.match(event.request);
+        }));
         return;
     }
 
-    // Strategy (B): Cache First for assets (Images, Files, Pages) - Offline Support
+    // Strategy (B): CACHE FIRST for ALL assets (HTML, Firebase SDKs, Fonts, Images)
+    // This is the key to making the app load instantly offline
     event.respondWith(
         caches.match(event.request).then(cached => {
-            return cached || fetch(event.request).then(response => {
-                // If valid response, cache it
+            if (cached) {
+                return cached;
+            }
+            return fetch(event.request).then(response => {
+                // Cache the new item
                 if (response.status === 200) {
                     const responseClone = response.clone();
                     caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseClone));
                 }
                 return response;
             }).catch(() => {
-                // Fallback to index.html if navigation fails
+                // Offline fallback for HTML pages
                 if (event.request.mode === 'navigate') {
                     return caches.match('./');
                 }
@@ -174,7 +186,7 @@ messaging.onBackgroundMessage((payload) => {
   return self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// 7. HANDLE NOTIFICATION CLICKS (Open App + Deep Link)
+// 7. HANDLE NOTIFICATION CLICKS
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
     const url = event.notification.data.click_action || '/';
@@ -184,13 +196,11 @@ self.addEventListener('notificationclick', (event) => {
             type: 'window',
             includeUncontrolled: true
         }).then((clientList) => {
-            // If app is open, focus it
             for (const client of clientList) {
                 if (client.url.includes(window.location.origin) && 'focus' in client) {
                     return client.focus();
                 }
             }
-            // If app is closed, open it
             if (clients.openWindow) {
                 return clients.openWindow(url);
             }
@@ -198,7 +208,7 @@ self.addEventListener('notificationclick', (event) => {
     );
 });
 
-// 8. APP MESSAGES (Testing & Manual Triggers)
+// 8. APP MESSAGES (Testing)
 self.addEventListener('message', (event) => {
     const data = event.data;
     if (data.type === 'SYNCED_NOTIF_DOCTOR' || data.type === 'TEST_NOTIF') {
@@ -213,18 +223,15 @@ self.addEventListener('message', (event) => {
     }
 });
 
-// 9. POLLING LOGIC (Deep Content Extraction)
+// 9. POLLING LOGIC
 async function checkNotifications() {
     if (!dbReady) {
-        console.log("[SW] DB not ready, initializing...");
         await initDB();
         if(!dbReady) return;
     }
 
     try {
         const lastNotifTime = await getLastTime();
-        
-        // Fetch Data (Add timestamp to prevent caching by browser)
         const url = 'https://api.jsonbin.io/v3/b/'+BIN_ID+'/latest?nocache=' + Date.now();
         
         const response = await fetch(url, { 
@@ -238,19 +245,15 @@ async function checkNotifications() {
         if (!response.ok) throw new Error("Network response was not ok");
         const data = await response.json();
 
-        // Check for new updates
         if (data && data.recentUpdates && data.recentUpdates.length > 0) {
-            const newestUpdate = data.recentUpdates[0]; // Assuming sorted by newest first
+            const newestUpdate = data.recentUpdates[0];
             const updateTimestamp = newestUpdate.timestamp || Date.now();
 
             if (updateTimestamp > lastNotifTime) {
                 console.log("[SW] New Update detected!");
-                
-                // Save timestamp
                 setLastTime(updateTimestamp);
 
                 if (Notification.permission === 'granted') {
-                    // CONSTRUCT DEEP LINK
                     const deepLink = `/?subject=${encodeURIComponent(newestUpdate.subject)}&doctor=${encodeURIComponent(newestUpdate.doctor)}&action=open_notification`;
 
                     self.registration.showNotification('📢 New Message', { 
@@ -260,9 +263,7 @@ async function checkNotifications() {
                         tag: 'latest-update', 
                         silent: false, 
                         vibrate: [200, 100, 200],
-                        data: {
-                            click_action: deepLink
-                        }
+                        data: { click_action: deepLink }
                     });
                 }
             }
@@ -272,8 +273,8 @@ async function checkNotifications() {
     }
 }
 
-// 10. PERIODIC SYNC EVENT (Background Trigger)
-self.addEventListener('sync', (event) => {
+// 10. PERIODIC SYNC EVENT
+self.addEventListener('sync', event => {
     if (event.tag === 'check-doctor-msg') {
         event.waitUntil(checkNotifications());
     }
