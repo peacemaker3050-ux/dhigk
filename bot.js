@@ -1,5 +1,7 @@
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
+const fs = require('fs'); // تم إضافة fs للتعامل مع الملفات
+const FormData = require('form-data'); // تأكد من تثبيت هذه المكتبة: npm install form-data
 
 // ==========================================
 // 1. بيانات البوت وقائمة المستخدمين المسموح لهم
@@ -20,6 +22,13 @@ const AUTHORIZED_USERS = [
 // مفاتيح قاعدة البيانات (JSONBin)
 const JSONBIN_BIN_ID = "696e77bfae596e708fe71e9d";
 const JSONBIN_ACCESS_KEY = "$2a$10$TunKuA35QdJp478eIMXxRunQfqgmhDY3YAxBXUXuV/JrgIFhU0Lf2";
+
+// ==========================================
+// إعدادات GitHub (مهم جداً: عدل البيانات أدناه)
+// ==========================================
+const GITHUB_TOKEN = "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"; 
+const GITHUB_REPO_OWNER = "peacemaker3050-ux";     // تم الاستخراج من الرابط
+const GITHUB_REPO_NAME = "2ndMec";             // تم الاستخراج من الرابط
 
 const bot = new TelegramBot(token, { polling: true });
 
@@ -61,6 +70,81 @@ async function getTelegramFileLink(fileId) {
     } catch (error) {
         console.error("خطأ في رابط الملف:", error);
         return null;
+    }
+}
+
+// ==========================================
+// دالة رفع الملف على GitHub Releases
+// ==========================================
+async function uploadToGithubRelease(filePath, fileName) {
+    try {
+        const owner = GITHUB_REPO_OWNER;
+        const repo = GITHUB_REPO_NAME;
+        const token = GITHUB_TOKEN;
+
+        // 1. إعداد اسم الـ Tag والـ Release
+        // نستخدم اسم الملف مع التاريخ لضمان عدم التكرار
+        const tag = `v_${fileName.replace(/\./g, '_')}_${Date.now()}`;
+        const releaseName = `Upload: ${fileName}`;
+
+        // 2. إنشاء Release جديد
+        const releaseUrl = `https://api.github.com/repos/${owner}/${repo}/releases`;
+        
+        let releaseId;
+        try {
+            const createResp = await axios.post(releaseUrl, {
+                tag_name: tag,
+                name: releaseName,
+                body: `Uploaded via UniBot: ${fileName}`,
+                draft: false,
+                prerelease: false
+            }, { headers: { 'Authorization': `token ${token}` } });
+            releaseId = createResp.data.id;
+        } catch (error) {
+            // إذا فشل لأن الـ Tag موجود، نحاول الحصول على آخر Release موجود لإضافة الملف له
+            console.log("Release might exist or error occurred, trying to fetch existing...");
+            try {
+                const listResp = await axios.get(releaseUrl, { headers: { 'Authorization': `token ${token}` } });
+                if (listResp.data && listResp.data.length > 0) {
+                    releaseId = listResp.data[0].id;
+                } else {
+                    // إذا لم يوجد إطلاقاً، نحاول إنشاؤه مرة أخرى
+                    throw new Error("Could not create or find a release.");
+                }
+            } catch (listErr) {
+                 throw new Error("Critical error accessing GitHub releases.");
+            }
+        }
+
+        // 3. الحصول على رابط الرفع الخاص (Upload URL)
+        const uploadUrlResp = await axios.get(`${releaseUrl}/${releaseId}`, { headers: { 'Authorization': `token ${token}` } });
+        const uploadUrl = uploadUrlResp.data.upload_url;
+
+        // 4. رفع الملف
+        const fileStream = fs.createReadStream(filePath);
+        const formData = new FormData();
+        formData.append('file', fileStream);
+
+        const uploadResp = await axios.post(uploadUrl, formData, {
+            maxBodyLength: Infinity,
+            maxContentLength: Infinity,
+            headers: {
+                ...formData.getHeaders(),
+                'Authorization': `token ${token}`
+            }
+        });
+
+        if (uploadResp.status === 201 || uploadResp.status === 200) {
+            // 5. تكوين الرابط العام للتحميل
+            const publicLink = `https://github.com/${owner}/${repo}/releases/download/${tag}/${fileName}`;
+            return publicLink;
+        } else {
+            throw new Error(`Upload failed with status ${uploadResp.status}`);
+        }
+
+    } catch (error) {
+        console.error("GitHub Upload Error:", error.response ? error.response.data : error.message);
+        throw error;
     }
 }
 
@@ -150,7 +234,7 @@ bot.on('callback_query', async (query) => {
     const data = query.data;
     const state = userStates[chatId];
 
-    // ⭐ تحقق إضافي عند الضغط على الأزرار (لمنع أي شخص من التلاعب بالأزرار)
+    // ⭐ تحقق إضافي عند الضغط على الأزرار
     if (!AUTHORIZED_USERS.includes(chatId)) {
         return bot.answerCallbackQuery(query.id, { text: "⛔ غير مصرح لك", show_alert: true });
     }
@@ -174,7 +258,7 @@ bot.on('callback_query', async (query) => {
         const doctorName = data.replace('doc_', '');
         state.doctor = doctorName;
 
-        // --- الذكاء هنا: إذا كان النوع نص، نتجاهل اختيار القسم ونرفع مباشرة ---
+        // --- إذا كان النوع نص، نتجاهل اختيار القسم ونرفع مباشرة ---
         if (state.type === 'text') {
             bot.answerCallbackQuery(query.id, { text: "جاري إرسال الإشعار... ⏳" });
             await processTextNotification(chatId, state, query.message.message_id);
@@ -191,23 +275,60 @@ bot.on('callback_query', async (query) => {
             });
         }
     }
-    // اختيار القسم (يحدث فقط للملفات)
+    // اختيار القسم (يحدث فقط للملفات) - تم التعديل هنا لرفع الملفات
     else if (state.step === 'select_section' && data.startsWith('sec_')) {
         const sectionName = data.replace('sec_', '');
-        bot.answerCallbackQuery(query.id, { text: "جاري الرفع..." });
-        const fileLink = await getTelegramFileLink(state.file.id);
-        if (!fileLink) return bot.sendMessage(chatId, "❌ فشل رابط الملف.");
+        const chatId = query.message.chat.id;
+        const messageId = query.message.message_id;
+        
+        bot.answerCallbackQuery(query.id, { text: "⏳ جاري معالجة الملف..." });
 
-        const db = await getDatabase();
-        if (db.database[state.subject]?.[state.doctor]?.[sectionName]) {
-            db.database[state.subject][state.doctor][sectionName].push({ name: state.file.name, link: fileLink });
-            try {
+        try {
+            // 1. تنزيل الملف من تليجرام مؤقتاً
+            const fileLink = await bot.getFileLink(state.file.id);
+            const tempFilePath = `./temp_${state.file.name}`;
+            
+            // استخدام axios لتنزيل الملف كـ Stream
+            const response = await axios({
+                method: 'get',
+                url: fileLink,
+                responseType: 'stream'
+            });
+
+            const writer = fs.createWriteStream(tempFilePath);
+            response.data.pipe(writer);
+
+            // انتظار انتهاء التنزيل
+            await new Promise((resolve, reject) => {
+                writer.on('finish', resolve);
+                writer.on('error', reject);
+            });
+
+            // 2. رفع الملف إلى GitHub
+            bot.editMessageText(chatId, messageId, "⏳ جاري الرفع إلى GitHub... يرجى الانتظار...");
+            
+            const githubLink = await uploadToGithubRelease(tempFilePath, state.file.name);
+
+            // 3. حذف الملف المؤقت من السيرفر
+            fs.unlinkSync(tempFilePath);
+
+            if (!githubLink) throw new Error("فشل الحصول على رابط GitHub");
+
+            // 4. حفظ الرابط الجديد في قاعدة البيانات
+            const db = await getDatabase();
+            if (db.database[state.subject]?.[state.doctor]?.[sectionName]) {
+                db.database[state.subject][state.doctor][sectionName].push({ name: state.file.name, link: githubLink });
+                
                 await saveDatabase(db);
-                bot.editMessageText(`✅ تم الرفع!\n\n📂 ${state.subject}\n👨‍🏫 ${state.doctor}\n📁 ${sectionName}`, {
-                    chat_id: chatId, message_id: query.message.message_id, parse_mode: 'Markdown'
-                });
+                bot.editMessageText(chatId, messageId, `✅ تم الرفع بنجاح!\n\n📂 ${state.subject}\n👨‍🏫 ${state.doctor}\n📁 ${sectionName}\n\n🔗 الرابط تم حفظه في GitHub.`, { parse_mode: 'Markdown' });
                 delete userStates[chatId];
-            } catch (err) { bot.sendMessage(chatId, "❌ فشل الحفظ."); }
+            } else {
+                bot.sendMessage(chatId, "❌ المسار غير صحيح في قاعدة البيانات.");
+            }
+
+        } catch (error) {
+            console.error("Error in file handling:", error);
+            bot.sendMessage(chatId, `❌ حدث خطأ: ${error.message}`);
         }
     }
 });
