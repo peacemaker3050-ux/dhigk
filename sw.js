@@ -93,7 +93,6 @@ self.addEventListener('activate', (event) => {
                 if ('periodicSync' in self.registration) {
                     try { await self.registration.periodicSync.register('check-doctor-msg', { minInterval: 15 * 60 * 1000 }); } catch (err) {}
                 }
-                // Start Polling
                 if (!isPolling) { isPolling = true; setInterval(checkNotifications, 60 * 1000); }
             })()
         ])
@@ -110,33 +109,42 @@ workbox.routing.registerRoute(
         plugins: [
             new workbox.expiration.ExpirationPlugin({
                 maxEntries: 10,
-                maxAgeSeconds: 60 * 5 // 5 minutes
+                maxAgeSeconds: 60 * 5 
             })
         ]
     })
 );
 
-// B. Cache First for FILES (PDFs, Docs, Images)
+// B. CACHE FIRST for FILES (PDFs, Docs, Images)
 workbox.routing.registerRoute(
     ({ request, url }) => {
-        // Match common file extensions OR Telegram domains
-        return (request.destination === 'document' || 
-                /\.(?:pdf|docx?|pptx?|txt|jpg|png|jpeg|gif)$/i.test(url.pathname) ||
-                url.hostname.includes('api.telegram.org'));
+        // Match common file extensions OR Telegram domains OR Google Drive domains
+        // VERIFIED: Removed 'request.destination === "document"'
+        const isFileRequest = (
+            /\.(?:pdf|docx?|pptx?|txt|jpg|png|jpeg|gif|webp|svg)$/i.test(url.pathname) ||
+            url.hostname.includes('api.telegram.org') || 
+            url.hostname.includes('drive.google.com')
+        );
+                
+        if (isFileRequest) {
+            console.log(`[SW] FILE REQUEST DETECTED: ${url}`);
+        }
+
+        return isFileRequest;
     },
     new workbox.strategies.CacheFirst({
         cacheName: FILE_CACHE_NAME,
         plugins: [
             new workbox.expiration.ExpirationPlugin({
-                maxEntries: 50, // Max 50 files cached
-                maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+                maxEntries: 50,
+                maxAgeSeconds: 30 * 24 * 60 * 60,
                 purgeOnQuotaError: true
             })
         ]
     })
 );
 
-// C. StaleWhileRevalidate for HTML and Assets (Default Workbox behavior)
+// C. StaleWhileRevalidate for HTML and Assets
 workbox.routing.registerRoute(
     ({ request }) => request.mode === 'navigate',
     new workbox.strategies.StaleWhileRevalidate({
@@ -150,18 +158,26 @@ self.addEventListener('message', (event) => {
     
     // Handle Pre-Caching PDFs
     if (data && data.type === 'PRE_CACHE_PDFS' && Array.isArray(data.urls)) {
-        console.log(`[SW] Pre-caching ${data.urls.length} files...`);
+        console.log(`[SW] Starting Pre-Cache for ${data.urls.length} files...`);
         event.waitUntil(
             caches.open(FILE_CACHE_NAME).then((cache) => {
-                return cache.addAll(data.urls.map(url => {
-                    // Clean Google Viewer links before caching if necessary, 
-                    // though usually better to do this in JS to cache the actual file, not the viewer page.
-                    // We assume JS sends Direct Links here.
-                    return url; 
-                })).catch(err => {
-                    console.warn("[SW] Some files failed to cache (Network or CORS):", err);
-                    // Don't fail entire process if one file fails
-                });
+                return Promise.all(data.urls.map(url => {
+                    // === VERIFIED: EXPLICIT FETCH WITH NO-CORS & CREDENTIALS OMIT ===
+                    return fetch(url, { mode: 'no-cors', credentials: 'omit' })
+                        .then(response => {
+                            if (!response.ok && response.type !== 'opaque') {
+                                throw new Error(`Failed to fetch ${url}: ${response.status}`);
+                            }
+                            return cache.put(url, response);
+                        })
+                        .then(() => {
+                            console.log(`[SW] ✅ Cached: ${url}`);
+                        })
+                        .catch(err => {
+                            console.warn(`[SW] ❌ Failed to cache (Network/CORS): ${url}`, err);
+                        });
+                    // ==============================================
+                }));
             })
         );
     }

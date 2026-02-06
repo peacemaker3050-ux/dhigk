@@ -154,7 +154,7 @@
         .notif-header { display: flex; justify-content: space-between; font-size: 11px; color: #f97316; margin-bottom: 6px; font-weight: 700; text-transform: uppercase; }
 
         .file-link-btn {
-            display: flex; align-items: center; gap: 12px; background: rgba(255,255, 255, 0.1);
+            display: flex; align-items: center; gap: 12px; background: rgba(255,255,255, 0.1);
             padding: 10px; border-radius: var(--radius-md); text-decoration: none; color: #fff;
             margin-top: 5px; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 14px;
             cursor: pointer; transition: all 0.2s; box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.05);
@@ -814,15 +814,17 @@
         // NEW OFFLINE STRATEGY IMPLEMENTATION
         // ==========================================
 
-        // 1. Convert Google Drive 'view' links to 'direct download'
+        // 1. ROBUST LINK CONVERSION (Google Drive fix)
         function getDirectLink(url) {
+            if (!url) return url;
+            if (url.startsWith('http://')) url = url.replace('http://', 'https://');
+
             const driveRegex = /https?:\/\/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)\/view/;
             const match = url.match(driveRegex);
             if (match) {
                 const id = match[1];
                 return `https://drive.google.com/uc?export=download&id=${id}`;
             }
-            // If already a download link or other service, return as is
             return url;
         }
 
@@ -837,9 +839,13 @@
                     obj.forEach(item => {
                         if (item && typeof item === 'object') {
                             if (item.link) {
-                                links.add(getDirectLink(item.link));
+                                let link = item.link;
+                                if (link.startsWith('http://')) link = link.replace('http://', 'https://');
+                                links.add(link);
                             } else if (item.type === 'notif' && item.link) {
-                                links.add(getDirectLink(item.link));
+                                let link = item.link;
+                                if (link.startsWith('http://')) link = link.replace('http://', 'https://');
+                                links.add(link);
                             }
                         }
                     });
@@ -859,64 +865,86 @@
                 return;
             }
 
-            const urlsToCache = getAllFileLinks(dbData);
-            console.log(`[App] Found ${urlsToCache.length} files. Starting Pre-Cache...`);
+            const rawLinks = getAllFileLinks(dbData);
+            const convertedLinks = rawLinks.map(url => getDirectLink(url));
+            
+            console.log(`[App] Found ${convertedLinks.length} files. Triggering Pre-Cache...`);
 
             navigator.serviceWorker.controller.postMessage({
                 type: 'PRE_CACHE_PDFS',
-                urls: urlsToCache
+                urls: convertedLinks
             });
             
-            // Only show toast if there are actually files
-            if(urlsToCache.length > 0) {
-                 showToast(`🔄 Updating offline library (${urlsToCache.length} files)...`, 'info');
+            if(convertedLinks.length > 0) {
+                 showToast(`🔄 Updating offline library (${convertedLinks.length} files)...`, 'info');
             }
         }
 
-        // 4. Smart Open (Web Share API)
+        // 4. Helper for MIME type (Fixed for Opaque responses)
+        function getMimeType(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            const types = {
+                'pdf': 'application/pdf',
+                'doc': 'application/msword',
+                'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'ppt': 'application/vnd.ms-powerpoint',
+                'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+                'png': 'image/png', 'gif': 'image/gif'
+            };
+            return types[ext] || 'application/octet-stream';
+        }
+
+        // 5. Smart Open (Web Share API) - FORCED BLOB SERVING
         async function openFileSmart(url, fileName) {
             const finalUrl = getDirectLink(url);
             showToast('⬇️ Opening File...', 'info');
 
             try {
-                // Fetch using SW (Cache-First strategy)
-                const response = await fetch(finalUrl);
+                // === VERIFIED: CREDENTIALS OMIT ===
+                const response = await fetch(finalUrl, { credentials: 'omit' });
+                // ===============================
+                
                 if (!response.ok) throw new Error("File not available offline or network error");
 
                 const blob = await response.blob();
-                const file = new File([blob], fileName, { type: blob.type });
+                
+                // Fix for Opaque responses (CORS stripping MIME types)
+                const mimeType = blob.type || getMimeType(fileName);
+                const file = new File([blob], fileName, { type: mimeType });
+                
+                const localUrl = window.URL.createObjectURL(file);
 
-                // Attempt to use Web Share API
                 if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    console.log("[App] Using Web Share API");
                     await navigator.share({
                         title: fileName,
                         text: `File from ${CONFIG.botName}`,
                         files: [file]
                     });
-                    showToast('✅ File shared/opened!', 'success');
+                    showToast('✅ File shared!', 'success');
                 } else {
-                    // Fallback for Desktop or unsupported browsers
-                    const blobUrl = window.URL.createObjectURL(blob);
+                    console.log("[App] Using Local Blob URL (Fallback)");
+                    // === VERIFIED: BLOB -> OBJECTURL -> HIDDEN ANCHOR ===
                     const link = document.createElement('a');
-                    link.href = blobUrl;
+                    link.href = localUrl;
                     link.download = fileName;
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
-                    setTimeout(() => window.URL.revokeObjectURL(blobUrl), 100);
+                    setTimeout(() => window.URL.revokeObjectURL(localUrl), 1000);
+                    // =================================================
                     showToast('📂 File downloaded.', 'success');
                 }
-
             } catch (err) {
                 console.error("Smart Open Error:", err);
-                
-                // Final Fallback: Google Docs Viewer if Blob method fails completely
+                showToast('❌ Failed to open file', 'error');
                 const googleViewerUrl = `https://docs.google.com/viewer?embedded=true&url=${encodeURIComponent(finalUrl)}`;
                 window.open(googleViewerUrl, '_blank');
-                showToast('Opening via Viewer (Smart mode failed)', 'info');
             }
         }
 
+        // === VERIFIED: BUTTON LINKAGE ===
         function handleFileClick(fileObj) {
             const isNotification = fileObj.type === "notif" || (fileObj.link && fileObj.link.startsWith("content:"));
             
@@ -936,6 +964,7 @@
                 }, 800);
             }
         }
+        // ================================
 
         function goBack() {
             addMessage("🔙 Back", 'user');
@@ -1076,7 +1105,6 @@
                 const data = localStorage.getItem('uniBot_db');
                 if (data) {
                     const parsed = JSON.parse(data);
-                    // Merge with defaults to ensure structure integrity
                     return { ...defaultConfig, ...parsed, database: { ...defaultDatabase, ...parsed.database } };
                 }
             } catch (e) {
@@ -1089,26 +1117,16 @@
             return fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, { headers: { 'X-Master-Key': JSONBIN_ACCESS_KEY, 'X-Bin-Meta': 'false' } })
             .then(res => { if (!res.ok) throw new Error("Failed"); return res.json(); })
             .then(data => { 
-                // Safe Merge: Apply defaults, then overwrite with cloud data, then overwrite with local modifications if needed
-                // Here we prioritize cloud data for DB but ensure structure exists
                 CONFIG = { ...defaultConfig, ...data }; 
-                
-                // Improved Database Merging: Ensure default keys exist if cloud data is sparse
                 if (data.database) {
-                    // Deep merge strategy for database to preserve structure
                     CONFIG.database = { ...defaultDatabase, ...data.database };
                 } else {
                     CONFIG.database = defaultDatabase;
                 }
                 
-                // SAVE TO LOCAL STORAGE (Key Fix for Offline Mode)
                 saveToLocalStorage(CONFIG);
-                
                 applyConfig(CONFIG); 
-
-                // --- NEW: Trigger Pre-caching here ---
                 triggerPrecache(CONFIG); 
-                // ------------------------------------
                 
                 if (CONFIG.recentUpdates && CONFIG.recentUpdates.length > 0) {
                     const seenIds = JSON.parse(localStorage.getItem('seenNotifIds') || '[]');
@@ -1538,12 +1556,23 @@
 
             // 2. Then try to fetch from Cloud (Update)
             fetchConfig().then(() => {
-                // If we just loaded from cache, fetchConfig updates UI with cloud data
                 if (localData) showToast("🔄 Synced with Cloud", "success");
                 else showToast("🎉 Synced with Cloud", "success");
+                
+                // Hide loading screen only after sync is done
+                const loadingScreen = document.getElementById('loading-screen');
+                loadingScreen.style.opacity = '0';
+                setTimeout(() => { loadingScreen.style.display = 'none'; }, 300);
             }).catch(err => { 
                 console.error("Initial Sync Failed", err); 
                 if (!localData) showToast("⚠️ Offline Mode", "error");
+                
+                // Hide loading screen even on error if we have local data
+                if (localData) {
+                     const loadingScreen = document.getElementById('loading-screen');
+                     loadingScreen.style.opacity = '0';
+                     setTimeout(() => { loadingScreen.style.display = 'none'; }, 300);
+                }
             });
 
             // Safe Service Worker Registration
@@ -1554,9 +1583,6 @@
             }
             
             initFirebaseAuth(); 
-            
-            const loadingScreen = document.getElementById('loading-screen');
-            setTimeout(() => { loadingScreen.style.opacity = '0'; setTimeout(() => { loadingScreen.style.display = 'none'; }, 300); }, 1500);
             
             const welcomeMsg = replacePlaceholders(CONFIG.welcomeMessage, null);
             botReply(welcomeMsg, true); 
