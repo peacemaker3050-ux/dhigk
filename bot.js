@@ -24,54 +24,16 @@ const JSONBIN_BIN_ID = "696e77bfae596e708fe71e9d";
 const JSONBIN_ACCESS_KEY = "$2a$10$TunKuA35QdJp478eIMXxRunQfqgmhDY3YAxBXUXuV/JrgIFhU0Lf2";
 
 // ==========================================
-// إعدادات GitHub (مهم جداً: عدل البيانات أدناه)
+// إعدادات GitHub (بياناتك الخاصة)
 // ==========================================
 const GITHUB_TOKEN = "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"; 
-const GITHUB_REPO_OWNER = "peacemaker3050-ux";     // تم الاستخراج من الرابط
-const GITHUB_REPO_NAME = "2ndMec";             // تم الاستخراج من الرابط
+const GITHUB_REPO_OWNER = "peacemaker3050-ux";     
+const GITHUB_REPO_NAME = "2ndMec";             
 
 const bot = new TelegramBot(token, { polling: true });
 
 // لتخزين حالة المحادثة
 const userStates = {}; 
-
-// ==========================================
-// 2. دوال الاتصال بقاعدة البيانات
-// ==========================================
-
-async function getDatabase() {
-    try {
-        const response = await axios.get(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
-            headers: { 'X-Master-Key': JSONBIN_ACCESS_KEY, 'X-Bin-Meta': 'false' }
-        });
-        return response.data;
-    } catch (error) {
-        console.error("خطأ في جلب البيانات:", error.message);
-        return null;
-    }
-}
-
-async function saveDatabase(data) {
-    try {
-        await axios.put(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, data, {
-            headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_ACCESS_KEY }
-        });
-        console.log("تم تحديث قاعدة البيانات بنجاح!");
-    } catch (error) {
-        console.error("خطأ في حفظ البيانات:", error.message);
-        throw error;
-    }
-}
-
-async function getTelegramFileLink(fileId) {
-    try {
-        const file = await bot.getFile(fileId);
-        return `https://api.telegram.org/file/bot${token}/${file.file_path}`;
-    } catch (error) {
-        console.error("خطأ في رابط الملف:", error);
-        return null;
-    }
-}
 
 // ==========================================
 // دالة رفع الملف على GitHub Releases
@@ -83,11 +45,10 @@ async function uploadToGithubRelease(filePath, fileName) {
         const token = GITHUB_TOKEN;
 
         // 1. إعداد اسم الـ Tag والـ Release
-        // نستخدم اسم الملف مع التاريخ لضمان عدم التكرار
         const tag = `v_${fileName.replace(/\./g, '_')}_${Date.now()}`;
         const releaseName = `Upload: ${fileName}`;
 
-        // 2. إنشاء Release جديد
+        // 2. إنشاء أو الحصول على Release
         const releaseUrl = `https://api.github.com/repos/${owner}/${repo}/releases`;
         
         let releaseId;
@@ -101,14 +62,12 @@ async function uploadToGithubRelease(filePath, fileName) {
             }, { headers: { 'Authorization': `token ${token}` } });
             releaseId = createResp.data.id;
         } catch (error) {
-            // إذا فشل لأن الـ Tag موجود، نحاول الحصول على آخر Release موجود لإضافة الملف له
-            console.log("Release might exist or error occurred, trying to fetch existing...");
+            // إذا فشل لأن الـ Tag موجود، نحاول الحصول على آخر Release موجود
             try {
                 const listResp = await axios.get(releaseUrl, { headers: { 'Authorization': `token ${token}` } });
                 if (listResp.data && listResp.data.length > 0) {
                     releaseId = listResp.data[0].id;
                 } else {
-                    // إذا لم يوجد إطلاقاً، نحاول إنشاؤه مرة أخرى
                     throw new Error("Could not create or find a release.");
                 }
             } catch (listErr) {
@@ -145,6 +104,44 @@ async function uploadToGithubRelease(filePath, fileName) {
     } catch (error) {
         console.error("GitHub Upload Error:", error.response ? error.response.data : error.message);
         throw error;
+    }
+}
+
+// ==========================================
+// 2. دوال الاتصال بقاعدة البيانات
+// ==========================================
+
+async function getDatabase() {
+    try {
+        const response = await axios.get(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+            headers: { 'X-Master-Key': JSONBIN_ACCESS_KEY, 'X-Bin-Meta': 'false' }
+        });
+        return response.data;
+    } catch (error) {
+        console.error("خطأ في جلب البيانات:", error.message);
+        return null;
+    }
+}
+
+async function saveDatabase(data) {
+    try {
+        await axios.put(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, data, {
+            headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_ACCESS_KEY }
+        });
+        console.log("تم تحديث قاعدة البيانات بنجاح!");
+    } catch (error) {
+        console.error("خطأ في حفظ البيانات:", error.message);
+        throw error;
+    }
+}
+
+async function getTelegramFileLink(fileId) {
+    try {
+        const file = await bot.getFile(fileId);
+        return `https://api.telegram.org/file/bot${token}/${file.file_path}`;
+    } catch (error) {
+        console.error("خطأ في رابط الملف:", error);
+        return null;
     }
 }
 
@@ -275,7 +272,7 @@ bot.on('callback_query', async (query) => {
             });
         }
     }
-    // اختيار القسم (يحدث فقط للملفات) - تم التعديل هنا لرفع الملفات
+    // اختيار القسم (يحدث فقط للملفات) - *** تم التعديل هنا ***
     else if (state.step === 'select_section' && data.startsWith('sec_')) {
         const sectionName = data.replace('sec_', '');
         const chatId = query.message.chat.id;
@@ -285,8 +282,9 @@ bot.on('callback_query', async (query) => {
 
         try {
             // 1. تنزيل الملف من تليجرام مؤقتاً
-            const fileLink = await bot.getFileLink(state.file.id);
-            const tempFilePath = `./temp_${state.file.name}`;
+            const fileLink = await getTelegramFileLink(state.file.id);
+            // استخدم مسار /tmp/ للمنصات المجانية (مثل Railway)
+            const tempFilePath = `/tmp/temp_${state.file.name}`;
             
             // استخدام axios لتنزيل الملف كـ Stream
             const response = await axios({
