@@ -1,112 +1,166 @@
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 const fs = require('fs');
-const FormData = require('form-data');
+const path = require('path');
 
-// ================= CONFIG =================
-const BOT_TOKEN = 'PUT_YOUR_BOT_TOKEN';
-const GITHUB_TOKEN = 'PUT_GITHUB_TOKEN';
+// ==========================================
+// 1. الإعدادات الأساسية (استخدم Variables في Railway أفضل)
+// ==========================================
+const token = '8273814930:AAEdxVzhYjnNZqdJKvpGJC9k1bVf2hcGUV4'; 
+const GITHUB_TOKEN = "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"; 
+const GITHUB_REPO_OWNER = "peacemaker3050-ux";      
+const GITHUB_REPO_NAME = "2ndMec";             
 
-const OWNER = 'peacemaker3050-ux';
-const REPO = '2ndM-mec'; // بدون مسافات
+const AUTHORIZED_USERS = [5605597142]; // الملاك المسموح لهم
 
-const JSONBIN_ID = '696e77bfae596e708fe71e9d';
-const JSONBIN_KEY = 'PUT_JSONBIN_KEY';
+// مفاتيح JSONBin
+const JSONBIN_BIN_ID = "696e77bfae596e708fe71e9d";
+const JSONBIN_ACCESS_KEY = "$2a$10$TunKuA35QdJp478eIMXxRunQfqgmhDY3YAxBXUXuV/JrgIFhU0Lf2";
 
-const ADMINS = [5605597142];
+const bot = new TelegramBot(token, { polling: true });
+const userStates = {}; 
 
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
-const userState = {};
+// ==========================================
+// 2. دالة الرفع إلى GitHub (نظام Contents API - Base64)
+// ==========================================
+async function uploadToGithub(filePath, fileName) {
+    try {
+        const content = fs.readFileSync(filePath, { encoding: 'base64' });
+        // تنظيف اسم الملف من المسافات
+        const cleanFileName = fileName.replace(/\s+/g, '_');
+        const uploadPath = `uploads/${Date.now()}_${cleanFileName}`;
 
-// ================= JSONBIN =================
-async function getDB() {
-  const res = await axios.get(
-    `https://api.jsonbin.io/v3/b/${JSONBIN_ID}/latest`,
-    { headers: { 'X-Master-Key': JSONBIN_KEY, 'X-Bin-Meta': false } }
-  );
-  return res.data;
-}
+        const url = `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/contents/${uploadPath}`;
 
-async function saveDB(data) {
-  await axios.put(
-    `https://api.jsonbin.io/v3/b/${JSONBIN_ID}`,
-    data,
-    { headers: { 'X-Master-Key': JSONBIN_KEY } }
-  );
-}
+        const response = await axios.put(url, {
+            message: `Upload file: ${cleanFileName}`,
+            content: content
+        }, {
+            headers: {
+                'Authorization': `token ${GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json'
+            }
+        });
 
-// ================= GITHUB =================
-async function uploadToGitHub(filePath, fileName) {
-  const tag = `upload-${Date.now()}`;
+        // الرابط المباشر للملف (Raw) اللي هيفتح أوفلاين في موقعك
+        return `https://raw.githubusercontent.com/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/main/${uploadPath}`;
 
-  const release = await axios.post(
-    `https://api.github.com/repos/${OWNER}/${REPO}/releases`,
-    {
-      tag_name: tag,
-      name: fileName
-    },
-    { headers: { Authorization: `token ${GITHUB_TOKEN}` } }
-  );
-
-  const uploadUrl = release.data.upload_url.replace('{?name,label}', `?name=${fileName}`);
-
-  const stream = fs.createReadStream(filePath);
-  await axios.post(uploadUrl, stream, {
-    headers: {
-      Authorization: `token ${GITHUB_TOKEN}`,
-      'Content-Type': 'application/octet-stream'
+    } catch (error) {
+        console.error("GitHub API Error:", error.response ? error.response.data : error.message);
+        throw new Error("فشل الرفع إلى جيت هوب، تأكد من التوكن وصلاحيات المستودع.");
     }
-  });
-
-  return `https://github.com/${OWNER}/${REPO}/releases/download/${tag}/${fileName}`;
 }
 
-// ================= START =================
-bot.onText(/\/start/, msg => {
-  if (!ADMINS.includes(msg.chat.id)) {
-    return bot.sendMessage(msg.chat.id, '⛔ غير مصرح');
-  }
-  bot.sendMessage(msg.chat.id, '📤 ابعت ملف أو رسالة نصية');
+// ==========================================
+// 3. دوال قاعدة البيانات (JSONBin)
+// ==========================================
+async function getDatabase() {
+    const resp = await axios.get(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+        headers: { 'X-Master-Key': JSONBIN_ACCESS_KEY, 'X-Bin-Meta': 'false' }
+    });
+    return resp.data;
+}
+
+async function saveDatabase(data) {
+    await axios.put(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, data, {
+        headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_ACCESS_KEY }
+    });
+}
+
+// ==========================================
+// 4. معالجة الرسائل والملفات
+// ==========================================
+
+bot.on('document', async (msg) => {
+    const chatId = msg.chat.id;
+    if (!AUTHORIZED_USERS.includes(chatId)) return;
+
+    const fileId = msg.document.file_id;
+    const fileName = msg.document.file_name;
+
+    bot.sendMessage(chatId, `⏳ جاري تحميل الملف من تليجرام...`);
+
+    try {
+        const fileLink = await bot.getFileLink(fileId);
+        const tempPath = path.join('/tmp', fileName); // مسار مؤقت لـ Railway
+
+        // تحميل الملف محلياً
+        const resp = await axios({ url: fileLink, responseType: 'stream' });
+        const writer = fs.createWriteStream(tempPath);
+        resp.data.pipe(writer);
+
+        writer.on('finish', async () => {
+            userStates[chatId] = { step: 'select_subject', file: { path: tempPath, name: fileName } };
+            
+            const db = await getDatabase();
+            const subjects = Object.keys(db.database);
+            const keyboard = subjects.map(sub => [{ text: sub, callback_data: `sub_${sub}` }]);
+
+            bot.sendMessage(chatId, "✅ تم التحميل. اختر المادة:", {
+                reply_markup: { inline_keyboard: keyboard }
+            });
+        });
+    } catch (err) {
+        bot.sendMessage(chatId, "❌ فشل في معالجة الملف.");
+    }
 });
 
-// ================= FILE =================
-bot.on('document', async msg => {
-  const chatId = msg.chat.id;
-  if (!ADMINS.includes(chatId)) return;
+bot.on('callback_query', async (query) => {
+    const chatId = query.message.chat.id;
+    const data = query.data;
+    const state = userStates[chatId];
 
-  const fileId = msg.document.file_id;
-  const fileName = msg.document.file_name;
+    if (!state) return;
 
-  const file = await bot.getFile(fileId);
-  const url = `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
+    if (data.startsWith('sub_')) {
+        state.subject = data.replace('sub_', '');
+        const db = await getDatabase();
+        const doctors = db.database[state.subject].doctors || [];
+        const keyboard = doctors.map(doc => [{ text: doc, callback_data: `doc_${doc}` }]);
+        
+        state.step = 'select_doctor';
+        bot.editMessageText("اختر الدكتور:", { chat_id: chatId, message_id: query.message.message_id, reply_markup: { inline_keyboard: keyboard } });
+    } 
+    else if (data.startsWith('doc_')) {
+        state.doctor = data.replace('doc_', '');
+        const db = await getDatabase();
+        const sections = db.database[state.subject][state.doctor].sections || [];
+        const keyboard = sections.map(sec => [{ text: sec, callback_data: `sec_${sec}` }]);
 
-  const tempPath = `/tmp/${fileName}`;
-  const writer = fs.createWriteStream(tempPath);
+        state.step = 'select_section';
+        bot.editMessageText("اختر القسم:", { chat_id: chatId, message_id: query.message.message_id, reply_markup: { inline_keyboard: keyboard } });
+    }
+    else if (data.startsWith('sec_')) {
+        const section = data.replace('sec_', '');
+        bot.editMessageText("🚀 جاري الرفع إلى GitHub وتحديث الموقع...", { chat_id: chatId, message_id: query.message.message_id });
 
-  const res = await axios.get(url, { responseType: 'stream' });
-  res.data.pipe(writer);
+        try {
+            // 1. الرفع لجيت هوب
+            const githubUrl = await uploadToGithub(state.file.path, state.file.name);
+            
+            // 2. التحديث في JSONBin
+            const db = await getDatabase();
+            db.database[state.subject][state.doctor][section].push({
+                name: state.file.name,
+                link: githubUrl
+            });
+            
+            // إضافة إشعار تلقائي للموقع
+            db.recentUpdates = db.recentUpdates || [];
+            db.recentUpdates.unshift({
+                subject: state.subject,
+                doctor: state.doctor,
+                timestamp: Date.now()
+            });
 
-  writer.on('finish', async () => {
-    const link = await uploadToGitHub(tempPath, fileName);
-    fs.unlinkSync(tempPath);
+            await saveDatabase(db);
 
-    bot.sendMessage(chatId, `✅ تم الرفع\n🔗 ${link}`);
-  });
-});
+            bot.sendMessage(chatId, `✅ تم الرفع بنجاح!\n🔗 الرابط: ${githubUrl}`);
+            fs.unlinkSync(state.file.path); // حذف الملف المؤقت
+            delete userStates[chatId];
 
-// ================= TEXT =================
-bot.on('text', async msg => {
-  if (msg.text.startsWith('/')) return;
-  if (!ADMINS.includes(msg.chat.id)) return;
-
-  const db = await getDB();
-  if (!db.notifications) db.notifications = [];
-
-  db.notifications.unshift({
-    text: msg.text,
-    date: new Date().toLocaleString()
-  });
-
-  await saveDB(db);
-  bot.sendMessage(msg.chat.id, '✅ تم حفظ الإشعار');
+        } catch (err) {
+            bot.sendMessage(chatId, `❌ خطأ: ${err.message}`);
+        }
+    }
 });
